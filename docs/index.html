@@ -395,7 +395,7 @@
       </div>
     </section>
 
-    <!-- Wallet View -->
+    <!-- Wallet View (100% Real Firestore Balances, Live Withdrawals & Transaction Ledger) -->
     <section id="view-wallet" class="view">
       <div class="section-header-row">
         <div>
@@ -416,7 +416,7 @@
         </div>
         <div class="wallet-actions-box">
           <button class="btn-primary" id="claim-bonus-btn">Claim Daily Bonus (+100 Coins)</button>
-          <button class="btn-secondary" id="withdraw-btn">Withdraw Balance</button>
+          <button class="btn-secondary" id="withdraw-btn">Request Payout</button>
         </div>
       </div>
 
@@ -462,16 +462,115 @@
             <span>UPI (GPay, PhonePe, Paytm, BHIM) · Amazon Pay</span>
           </div>
         </div>
+
+        <!-- Real Firestore Payout Submissions Panel -->
+        <div class="wallet-card wallet-card-wide" style="margin-top: 10px;">
+          <div class="section-header-row">
+            <div>
+              <h3 class="card-title">Live Payout Requests (Firestore)</h3>
+              <p class="card-desc">Track real payout submissions to UPI or Amazon Pay in real-time.</p>
+            </div>
+            <span id="user-withdrawals-count" class="badge-account-type">0 Submissions</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="wallet-payout-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Coins</th>
+                  <th>INR Amount</th>
+                  <th>Destination</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="user-withdrawals-tbody">
+                <tr><td colspan="5" class="table-empty">No payout requests submitted yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div class="wallet-logs-section">
         <div class="section-header-row">
-          <h3 class="sub-title">Recent Activity</h3>
-          <button class="btn-ghost btn-sm" id="clear-logs-btn">Clear History</button>
+          <h3 class="sub-title">Recent Activity Ledger</h3>
+          <button class="btn-ghost btn-sm" id="clear-logs-btn">Clear Local History</button>
         </div>
         <div id="wallet-logs" class="wallet-logs"></div>
       </div>
     </section>
+
+    <!-- In-App Real Cash Withdrawal Modal -->
+    <div id="withdraw-modal" class="modal-overlay" style="display:none;">
+      <div class="withdraw-modal-card">
+        <div class="withdraw-modal-header">
+          <div class="withdraw-modal-icon">💸</div>
+          <div>
+            <h3 class="withdraw-modal-title">Request Real Cash Payout</h3>
+            <p class="withdraw-modal-sub">Direct transfer via UPI or Amazon Pay. Fixed rate: 1,000 Coins = ₹1.00 INR.</p>
+          </div>
+        </div>
+
+        <div class="withdraw-balance-banner">
+          <div class="wb-col">
+            <span class="wb-label">Available Balance</span>
+            <span class="wb-val" id="modal-available-coins">0 Coins</span>
+          </div>
+          <div class="wb-col">
+            <span class="wb-label">Real Cash Value</span>
+            <span class="wb-val inr" id="modal-available-inr">₹0.00 INR</span>
+          </div>
+        </div>
+
+        <form id="withdraw-form" class="withdraw-form">
+          <div class="form-group">
+            <label for="withdraw-amount-input">Coins to Withdraw (Minimum 1,000)</label>
+            <div class="input-with-preview">
+              <input type="number" id="withdraw-amount-input" min="1000" step="500" placeholder="e.g. 1000" required>
+              <span class="input-inr-preview" id="modal-amount-inr-preview">= ₹1.00 INR</span>
+            </div>
+            <div class="withdraw-chip-row">
+              <button type="button" class="w-chip" data-amount="1000">1,000 (₹1)</button>
+              <button type="button" class="w-chip" data-amount="2000">2,000 (₹2)</button>
+              <button type="button" class="w-chip" data-amount="5000">5,000 (₹5)</button>
+              <button type="button" class="w-chip" data-amount="all">All Coins</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Payout Destination Method</label>
+            <div class="payout-type-selector">
+              <label class="payout-type-option active" id="opt-upi">
+                <input type="radio" name="payout-method" value="upi" checked>
+                <span class="payout-type-card">
+                  <strong>UPI ID</strong>
+                  <small>GPay, PhonePe, Paytm, BHIM</small>
+                </span>
+              </label>
+              <label class="payout-type-option" id="opt-amazon">
+                <input type="radio" name="payout-method" value="amazon">
+                <span class="payout-type-card">
+                  <strong>Amazon Pay</strong>
+                  <small>Wallet Phone Number</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="withdraw-destination-input" id="withdraw-dest-label">Enter UPI ID (e.g. name@okhdfcbank / number@paytm)</label>
+            <input type="text" id="withdraw-destination-input" placeholder="e.g. yourname@upi" required>
+          </div>
+
+          <div id="withdraw-modal-error" class="auth-error-msg" style="display:none;"></div>
+
+          <div class="withdraw-modal-actions">
+            <button type="button" id="withdraw-modal-cancel" class="btn-secondary">Cancel</button>
+            <button type="submit" id="withdraw-modal-submit" class="btn-primary">Submit Payout Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- Profile & Settings View (100% Real Firestore Data, Photo Avatar Studio & Multi-Theme Switcher) -->
     <section id="view-profile" class="view">

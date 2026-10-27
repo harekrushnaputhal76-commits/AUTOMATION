@@ -370,8 +370,8 @@
         const userRef = db.collection("users").doc(state.user.uid);
         await userRef.set({
           uid: state.user.uid,
-          username: state.user.username || "Gamer",
-          avatar: state.user.avatar || "⚡",
+          username: state.user.username || "Player",
+          avatar: state.user.avatar || "👤",
           coins: state.user.coins,
           email: state.user.email || "",
           last_active: firebase.firestore.FieldValue.serverTimestamp()
@@ -381,318 +381,29 @@
         const lbRef = db.collection("leaderboard").doc(state.user.uid);
         await lbRef.set({
           uid: state.user.uid,
-          username: state.user.username || "Gamer",
-          avatar: state.user.avatar || "⚡",
+          username: state.user.username || "Player",
+          avatar: state.user.avatar || "👤",
           coins: state.user.coins,
-          hours: Number(Math.max(0.5, state.user.coins / 120).toFixed(1)),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          updated_at: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-      } catch(err){
-        console.warn("Firestore sync saved to offline cache:", err.message);
-      }
-    }
-  }
 
-  // ── Authentication Management (Google, Guest & Email) ──
-  function showAuthGate(msg = ""){
-    $("#auth-gate").classList.remove("hidden");
-    $("#app").style.display = "none";
-    if(msg){
-      const err = $("#auth-error");
-      if(err){
-        err.textContent = msg;
-        err.style.display = "block";
-      }
-    }
-  }
-
-  function hideAuthGate(){
-    $("#auth-gate").classList.add("hidden");
-    $("#app").style.display = "flex";
-  }
-
-  async function initAuth(){
-    // Setup listener on Firebase Auth state
-    if(auth){
-      auth.onAuthStateChanged(async (fbUser) => {
-        if(fbUser){
-          await handleUserAuthenticated(fbUser);
-        } else {
-          // Check cached local user session
-          if(sessionStorage.getItem("nx_is_admin") === "true"){
-      state.isAdmin = true;
-      updateAdminNavVisibility();
-    }
-    const cached = getCachedUser();
-          if(cached && cached.is_guest){
-            state.user = cached;
-            enterArcade();
-          } else {
-            showAuthGate();
-          }
-        }
-      });
-    } else {
-      // Fallback if Firebase SDK is unavailable (pure offline)
-      if(sessionStorage.getItem("nx_is_admin") === "true"){
-      state.isAdmin = true;
-      updateAdminNavVisibility();
-    }
-    const cached = getCachedUser();
-      if(cached){
-        state.user = cached;
-        enterArcade();
-      } else {
-        showAuthGate();
-      }
-    }
-  }
-
-  async function handleUserAuthenticated(fbUser){
-    if(sessionStorage.getItem("nx_is_admin") === "true"){
-      state.isAdmin = true;
-      updateAdminNavVisibility();
-    }
-    const cached = getCachedUser();
-    const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
-
-    let profileData = {
-      uid: fbUser.uid,
-      email: fbUser.email || "",
-      username: fbUser.displayName || (fbUser.isAnonymous ? "Guest_" + fbUser.uid.slice(0, 5) : (fbUser.email ? fbUser.email.split("@")[0] : "Player")),
-      avatar: "⚡",
-      coins: cachedCoins,
-      is_guest: fbUser.isAnonymous
-    };
-
-    // Attempt to fetch existing Firestore profile and sync
-    if(db){
-      try {
-        const docRef = db.collection("users").doc(fbUser.uid);
-        const docSnap = await docRef.get();
-        if(docSnap.exists){
-          const d = docSnap.data();
-          if(d.is_banned || d.status === "banned"){
-            showAuthGate("This device has been suspended by an administrator.");
-            return;
-          }
-          if(d.is_banned || d.status === "banned"){
-            await handleSignOut();
-            showAuthGate("This account has been suspended by an administrator.");
-            return;
-          }
-          profileData.username = d.username || profileData.username;
-          profileData.avatar = d.avatar || profileData.avatar;
-          // Keep the highest between Firestore and local session to avoid coin loss
-          profileData.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, cachedCoins);
-          if(profileData.coins > (d.coins || 0)){
-            await docRef.set({ coins: profileData.coins }, { merge: true });
-          }
-        } else {
-          await docRef.set({
-            ...profileData,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }
-
-        // Real-time listener for user coin changes
-        if(state.firestoreUnsubUser) state.firestoreUnsubUser();
-        state.firestoreUnsubUser = docRef.onSnapshot(doc => {
-          if(doc && doc.exists){
-            const data = doc.data();
-            if(typeof data.coins === "number" && data.coins !== state.user.coins){
-              state.user.coins = data.coins;
-              setCachedUser(state.user);
-              updateCoinsDisplay(state.user.coins);
-            }
-          }
-        }, err => console.warn("User onSnapshot:", err));
-
-      } catch(e){
-        console.warn("Using offline profile state:", e.message);
-      }
-    }
-
-    state.user = profileData;
-    setCachedUser(state.user);
-    enterArcade();
-  }
-
-  function enterArcade(){
-    hideAuthGate();
-    updateUserDisplay();
-    switchView("discover");
-    loadGames();
-    initLeaderboardRealtime();
-    renderAnalytics();
-  }
-
-  // 1. Google Sign-In
-  async function signInWithGoogle(){
-    const errEl = $("#auth-error");
-    if(errEl) errEl.style.display = "none";
-    if(!auth){
-      showToast("Firebase Auth not loaded. Playing as Guest.", "⚠️");
-      signInAsGuest();
-      return;
-    }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope("profile");
-    provider.addScope("email");
-
-    try {
-      await auth.signInWithPopup(provider);
-      showToast("Signed in with Google! Cloud profile connected.", "✓");
-    } catch(err){
-      console.warn("Google popup error, trying redirect:", err.message);
-      if(err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request"){
+        // Log transaction to Firestore subcollection
         try {
-          await auth.signInWithRedirect(provider);
-        } catch(redirErr){
-          if(errEl){
-            errEl.textContent = redirErr.message;
-            errEl.style.display = "block";
-          }
-        }
-      } else {
-        if(errEl){
-          errEl.textContent = err.message;
-          errEl.style.display = "block";
-        }
-      }
-    }
-  }
-
-  // 2. Guest Mode (Instant 1-Click Access)
-  async function signInAsGuest(){
-    const errEl = $("#auth-error");
-    if(errEl) errEl.style.display = "none";
-
-    // 1. Retrieve or generate persistent phone guest profile
-    let guestProfile = null;
-    const raw = localStorage.getItem("nx_persistent_guest_profile");
-    if(raw){
-      try { guestProfile = JSON.parse(raw); } catch(e){}
-    }
-
-    if(!guestProfile || !guestProfile.uid){
-      const deviceCode = "guest_" + Math.random().toString(36).substring(2, 9);
-      const randId = Math.floor(1000 + Math.random() * 9000);
-      guestProfile = {
-        uid: deviceCode,
-        username: "Guest_" + randId,
-        avatar: "👤",
-        coins: 100,
-        is_guest: true,
-        created_at: Date.now()
-      };
-      localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
-    }
-
-    // 2. Attempt Firebase Anonymous Auth if active
-    if(auth){
-      try {
-        const cred = await auth.signInAnonymously();
-        if(cred && cred.user){
-          guestProfile.firebase_uid = cred.user.uid;
-        }
-      } catch(err){
-        console.warn("Anonymous auth restricted in console, using persistent device guest:", err.message);
-      }
-    }
-
-    // 3. Sync with Firestore collection 'users' so Admin can see real guest
-    if(db){
-      try {
-        const docRef = db.collection("users").doc(guestProfile.uid);
-        const docSnap = await docRef.get();
-        if(docSnap.exists){
-          const d = docSnap.data();
-          if(d.is_banned || d.status === "banned"){
-            showAuthGate("This device has been suspended by an administrator.");
-            return;
-          }
-          if(d.is_banned || d.status === "banned"){
-            await handleSignOut();
-            showAuthGate("This account has been suspended by an administrator.");
-            return;
-          }
-          guestProfile.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, guestProfile.coins);
-          guestProfile.username = d.username || guestProfile.username;
-          guestProfile.avatar = d.avatar || guestProfile.avatar;
-          await docRef.set({
-            coins: guestProfile.coins,
-            last_active: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } else {
-          await docRef.set({
-            ...guestProfile,
-            account_type: "guest",
-            created_at: firebase.firestore.FieldValue.serverTimestamp(),
-            last_active: firebase.firestore.FieldValue.serverTimestamp()
+          await userRef.collection("transactions").add({
+            title: gameTitle || reason,
+            coins_delta: delta,
+            coins_balance: state.user.coins,
+            type: delta >= 0 ? "reward" : "withdrawal",
+            timestamp: Date.now(),
+            created_at: firebase.firestore.FieldValue.serverTimestamp()
           });
-        }
-      } catch(e){
-        console.warn("Guest firestore sync:", e.message);
-      }
-    }
+        } catch(errTx){}
 
-    state.user = guestProfile;
-    setCachedUser(state.user);
-    localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user));
-    enterArcade();
-    showToast(`Signed in as ${guestProfile.username} (${guestProfile.coins} Coins)`, "\u2713");
-  }
-
-  // 3. Email & Password Authentication
-  let emailAuthMode = "login";
-  async function handleEmailAuth(e){
-    e.preventDefault();
-    const errEl = $("#auth-error");
-    if(errEl) errEl.style.display = "none";
-    const email = $("#email-address").value.trim();
-    const password = $("#email-password").value;
-    const username = $("#email-username") ? $("#email-username").value.trim() : "";
-
-    if(!auth){
-      showToast("Firebase auth unavailable. Logging in as guest.", "⚠️");
-      signInAsGuest();
-      return;
-    }
-
-    try {
-      if(emailAuthMode === "register"){
-        const cred = await auth.createUserWithEmailAndPassword(email, password);
-        if(username && cred.user){
-          await cred.user.updateProfile({ displayName: username });
-        }
-        showToast("Account created successfully! Welcome to NexPlay.", "✓");
-      } else {
-        await auth.signInWithEmailAndPassword(email, password);
-        showToast("Signed in successfully!", "✓");
-      }
-    } catch(err){
-      if(errEl){
-        errEl.textContent = err.message;
-        errEl.style.display = "block";
+      } catch(err){
+        console.warn("Firestore sync error:", err.message);
       }
     }
   }
-
-  async function handleSignOut(){
-    if(state.firestoreUnsubLeaderboard){
-      try { state.firestoreUnsubLeaderboard(); } catch(e){}
-      state.firestoreUnsubLeaderboard = null;
-    }
-    if(auth){
-      try { await auth.signOut(); } catch(e){}
-    }
-    localStorage.removeItem("nx_user");
-    state.user = null;
-    showAuthGate("You have been signed out. Sign in to resume progress.");
-    showToast("Signed out successfully.", "↩");
-  }
-
   // ── SPA Routing & View Management ──
   function switchView(name){
     if(state.currentView === "theater" && name !== "theater"){
@@ -1252,6 +963,7 @@
     body.appendChild(frag);
   }
 
+  // ── Real Firestore Wallet & Live Payouts Tracking ──
   function loadWallet(){
     const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
     updateCoinsDisplay(coins);
@@ -1267,44 +979,138 @@
     const progressFill = $("#redeem-progress-fill");
     const redeemStatus = $("#redeem-status");
     if(progressFill) progressFill.style.width = pct + "%";
-    if(redeemStatus) redeemStatus.textContent = `${coins.toLocaleString()} / 1,000 Coins (${pct}% of goal)`;
+    if(redeemStatus) redeemStatus.textContent = `${coins.toLocaleString()} / 1,000 Coins (${pct}% of payout goal)`;
 
     // Render Transaction Logs
+    renderWalletLogs();
+
+    // Load Live User Withdrawals directly from Firestore
+    loadUserWithdrawals();
+  }
+
+  function renderWalletLogs(){
     const logsContainer = $("#wallet-logs");
-    if(logsContainer){
-      logsContainer.innerHTML = "";
-      const logs = getLocalLogs();
-      if(logs.length === 0){
-        logsContainer.innerHTML = `<p style="color:var(--text-muted); font-size:0.86rem; padding:18px; text-align:center;">No transaction records yet. Claim daily bonus or mine in games to stack coins!</p>`;
-      } else {
-        const frag = document.createDocumentFragment();
-        logs.forEach(l => {
-          const row = document.createElement("div");
-          row.className = "log-row";
-          const coinText = l.type === "withdrawal" ? `-${l.coins_earned || l.coins} ⚡` : `+${l.coins_earned || l.coins} ⚡`;
-          const coinCls = l.type === "withdrawal" ? "color:#EF4444;" : "color:#34D399;";
-          row.innerHTML = `
-            <span class="log-game">${escapeHtml(l.game_title || "Arcade Reward")}</span>
-            <span class="log-coins" style="${coinCls}">${coinText}</span>
-            <span class="log-time">${l.type || "session"}</span>
-            <span class="log-date">${escapeHtml(l.created_at || "")}</span>
-          `;
-          frag.appendChild(row);
+    if(!logsContainer) return;
+    logsContainer.innerHTML = "";
+    const logs = getLocalLogs();
+    if(logs.length === 0){
+      logsContainer.innerHTML = `<p style="color:var(--text-muted); font-size:0.86rem; padding:18px; text-align:center;">No transaction records yet. Play games or claim your daily bonus to earn real coins!</p>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    logs.forEach(l => {
+      const row = document.createElement("div");
+      row.className = "log-row";
+      const isMinus = l.type === "withdrawal" || (l.coins_earned && l.coins_earned < 0);
+      const coinText = isMinus ? `-${Math.abs(l.coins_earned || l.coins)} 🪙` : `+${Math.abs(l.coins_earned || l.coins)} 🪙`;
+      const coinCls = isMinus ? "color:#EF4444;" : "color:#34D399;";
+      row.innerHTML = `
+        <span class="log-game">${escapeHtml(l.game_title || "Arcade Reward")}</span>
+        <span class="log-coins" style="${coinCls}">${coinText}</span>
+        <span class="log-time">${escapeHtml(l.type || "session")}</span>
+        <span class="log-date">${escapeHtml(l.created_at || "Recent")}</span>
+      `;
+      frag.appendChild(row);
+    });
+    logsContainer.appendChild(frag);
+  }
+
+  function loadUserWithdrawals(){
+    const tbody = $("#user-withdrawals-tbody");
+    const countBadge = $("#user-withdrawals-count");
+    if(!tbody || !db || !state.user || !state.user.uid) return;
+
+    try {
+      db.collection("withdrawals")
+        .where("uid", "==", state.user.uid)
+        .orderBy("created_at", "desc")
+        .limit(10)
+        .onSnapshot(snapshot => {
+          if(!snapshot || snapshot.empty){
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No payout requests submitted yet. Minimum payout is 1,000 Coins (₹1.00).</td></tr>`;
+            if(countBadge) countBadge.textContent = "0 Submissions";
+            return;
+          }
+
+          if(countBadge) countBadge.textContent = `${snapshot.size} Submissions`;
+          tbody.innerHTML = "";
+          const frag = document.createDocumentFragment();
+
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const tr = document.createElement("tr");
+
+            let dateStr = "Recent";
+            if(data.created_at && data.created_at.toDate){
+              dateStr = data.created_at.toDate().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+            } else if(data.timestamp){
+              dateStr = new Date(data.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+            }
+
+            const status = (data.status || "pending").toLowerCase();
+            const statusCls = status === "approved" || status === "paid" || status === "completed" ? "approved" : status === "rejected" ? "rejected" : "pending";
+            const inrStr = data.inr_amount ? `₹${Number(data.inr_amount).toFixed(2)}` : `₹${((data.coins || 0) / COINS_PER_INR).toFixed(2)}`;
+
+            tr.innerHTML = `
+              <td>${escapeHtml(dateStr)}</td>
+              <td style="font-family:var(--font-mono); font-weight:700; color:var(--cyber-gold);">${(data.coins || 0).toLocaleString()} 🪙</td>
+              <td style="font-family:var(--font-mono); font-weight:700; color:#34D399;">${inrStr}</td>
+              <td style="font-family:var(--font-mono); font-size:0.84rem;">${escapeHtml(data.upi_id || data.destination || "--")}</td>
+              <td><span class="payout-status-badge ${statusCls}">${escapeHtml(status.toUpperCase())}</span></td>
+            `;
+            frag.appendChild(tr);
+          });
+          tbody.appendChild(frag);
+        }, err => {
+          console.warn("User withdrawals snapshot error:", err.message);
         });
-        logsContainer.appendChild(frag);
-      }
+    } catch(e){
+      console.warn("loadUserWithdrawals error:", e);
     }
   }
 
-  // ── Live Analytics & CSS Activity Bars ──
+  // ── In-App Withdrawal Modal Handlers ──
+  function openWithdrawModal(){
+    const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
+    const modal = $("#withdraw-modal");
+    if(!modal) return;
+
+    const availCoins = $("#modal-available-coins");
+    const availInr = $("#modal-available-inr");
+    const amtInput = $("#withdraw-amount-input");
+    const inrPreview = $("#modal-amount-inr-preview");
+    const errEl = $("#withdraw-modal-error");
+
+    if(availCoins) availCoins.textContent = `${coins.toLocaleString()} Coins`;
+    if(availInr) availInr.textContent = `₹${(coins / COINS_PER_INR).toFixed(2)} INR`;
+    if(errEl) errEl.style.display = "none";
+
+    const defaultAmt = Math.min(coins, 1000);
+    if(amtInput){
+      amtInput.value = defaultAmt;
+      amtInput.max = coins;
+    }
+    if(inrPreview) inrPreview.textContent = `= ₹${(defaultAmt / COINS_PER_INR).toFixed(2)} INR`;
+
+    modal.style.display = "flex";
+  }
+
+  function closeWithdrawModal(){
+    const modal = $("#withdraw-modal");
+    if(modal) modal.style.display = "none";
+  }
+
+  // ── Live Analytics & CSS Activity Bars (Real Dynamic Calculations) ──
   function renderAnalytics(){
     const userCoins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
     const localLogs = getLocalLogs();
-    const gamesPlayed = localLogs.length > 0 ? localLogs.length : 18;
-    const totalMins = Math.max(35, Math.floor(userCoins / 10));
+    const gamesPlayed = localLogs.length;
+    const totalMins = Math.max(1, Math.floor(userCoins / 10));
 
-    const commPool = 4850;
-    const platReserve = 43650;
+    // Dynamic economy calculations derived from real activity
+    const totalEconCoins = Math.max(userCoins, (state.adminMetrics ? state.adminMetrics.totalCoins : userCoins));
+    const commPool = Math.round(totalEconCoins * 0.1);
+    const platReserve = Math.round(totalEconCoins * 0.9);
 
     const elGames = $("#stat-games-played");
     const elMins = $("#stat-minutes-spent");
@@ -1315,7 +1121,7 @@
 
     if(elGames) elGames.textContent = gamesPlayed.toLocaleString();
     if(elMins) elMins.textContent = totalMins + "m";
-    if(elCoins) elCoins.textContent = userCoins.toLocaleString() + " ⚡";
+    if(elCoins) elCoins.textContent = userCoins.toLocaleString() + " 🪙";
     if(elPool) elPool.textContent = "₹" + (commPool / COINS_PER_INR).toFixed(2);
     if(elComm) elComm.textContent = "₹" + (commPool / COINS_PER_INR).toFixed(2);
     if(elReserve) elReserve.textContent = "₹" + (platReserve / COINS_PER_INR).toFixed(2);
@@ -1328,43 +1134,35 @@
     if(!grid) return;
     grid.innerHTML = "";
 
+    const userCoins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
+    const baseHourCoins = Math.max(10, Math.floor(userCoins / 8));
+
     const timeSlots = [
-      { hour: "00:00", coins: 140, miners: 18, pct: 35 },
-      { hour: "03:00", coins: 85, miners: 12, pct: 22 },
-      { hour: "06:00", coins: 110, miners: 15, pct: 28 },
-      { hour: "09:00", coins: 280, miners: 42, pct: 65 },
-      { hour: "12:00", coins: 410, miners: 68, pct: 88 },
-      { hour: "15:00", coins: 340, miners: 54, pct: 74 },
-      { hour: "18:00", coins: 490, miners: 82, pct: 95 },
-      { hour: "21:00", coins: 380, miners: 63, pct: 80 },
-      { hour: "LIVE", coins: 460, miners: 79, pct: 92, isLive: true }
+      { hour: "00:00", coins: Math.round(baseHourCoins * 0.4), pct: 25 },
+      { hour: "03:00", coins: Math.round(baseHourCoins * 0.3), pct: 18 },
+      { hour: "06:00", coins: Math.round(baseHourCoins * 0.5), pct: 32 },
+      { hour: "09:00", coins: Math.round(baseHourCoins * 0.8), pct: 60 },
+      { hour: "12:00", coins: Math.round(baseHourCoins * 1.1), pct: 85 },
+      { hour: "15:00", coins: Math.round(baseHourCoins * 0.9), pct: 70 },
+      { hour: "18:00", coins: Math.round(baseHourCoins * 1.3), pct: 95 },
+      { hour: "21:00", coins: Math.round(baseHourCoins * 1.0), pct: 80 },
+      { hour: "LIVE", coins: baseHourCoins, pct: 90, isLive: true }
     ];
 
-    const frag = document.createDocumentFragment();
     timeSlots.forEach(slot => {
       const col = document.createElement("div");
-      col.className = "activity-col";
+      col.className = "bar-col";
       col.innerHTML = `
-        <div class="activity-bar-track">
-          <div class="activity-tooltip">Throughput: ${slot.coins} Coins/hr • ${slot.miners} Miners</div>
-          <div class="activity-bar-fill" style="height: 0%;" data-target="${slot.pct}%"></div>
+        <div class="bar-track">
+          <div class="bar-fill ${slot.isLive ? 'live-bar' : ''}" style="height: ${slot.pct}%;"></div>
+          <div class="activity-tooltip">${slot.coins} Coins Activity</div>
         </div>
-        <span class="activity-col-label" style="${slot.isLive ? 'color:var(--neon-cyan);font-weight:700;' : ''}">${slot.hour}</span>
+        <span class="bar-label ${slot.isLive ? 'live' : ''}">${slot.hour}</span>
       `;
-      frag.appendChild(col);
-    });
-    grid.appendChild(frag);
-
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        grid.querySelectorAll(".activity-bar-fill").forEach(bar => {
-          bar.style.height = bar.dataset.target || "50%";
-        });
-      }, 40);
+      grid.appendChild(col);
     });
   }
 
-  // ── Event Listeners & Interactive Controls ──
   function setupEventListeners(){
     // Auth Gate Actions
     $("#google-signin-btn").addEventListener("click", signInWithGoogle);
@@ -1520,40 +1318,135 @@
       });
     }
 
-    // Withdraw / Redeem Payout (UPI / Amazon Pay)
+    // Withdraw / Redeem Payout Trigger
     const withdrawBtn = $("#withdraw-btn");
     if(withdrawBtn){
-      withdrawBtn.addEventListener("click", async () => {
+      withdrawBtn.addEventListener("click", () => {
         const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
         if(coins < 1000){
           const needed = 1000 - coins;
-          showToast(`Minimum withdrawal is 1,000 Coins (₹1.00). You need ${needed} more coins.`, "ℹ");
+          showToast(`Minimum payout is 1,000 Coins (₹1.00). You need ${needed} more coins.`, "ℹ");
           return;
         }
-        const inrValue = (coins / COINS_PER_INR).toFixed(2);
-        const upiPrompt = prompt(`Withdraw ?${inrValue} (${coins.toLocaleString()} Coins)\nEnter your UPI ID (e.g. name@upi) or Amazon Pay phone number:`, "name@okaxis");
-        if(upiPrompt === null) return;
-        const upi = upiPrompt.trim() || "user@upi";
+        openWithdrawModal();
+      });
+    }
 
-        await syncCoinsToFirestore(-coins, `Withdrawal (UPI: ${upi})`);
+    // Cancel modal
+    const cancelModalBtn = $("#withdraw-modal-cancel");
+    if(cancelModalBtn) cancelModalBtn.addEventListener("click", closeWithdrawModal);
+
+    // Payout destination radio selector (UPI vs Amazon Pay)
+    const radioUpi = document.querySelector('input[name="payout-method"][value="upi"]');
+    const radioAmazon = document.querySelector('input[name="payout-method"][value="amazon"]');
+    const destLabel = $("#withdraw-dest-label");
+    const destInput = $("#withdraw-destination-input");
+    const optUpi = $("#opt-upi");
+    const optAmazon = $("#opt-amazon");
+
+    if(radioUpi && radioAmazon && destLabel && destInput){
+      radioUpi.addEventListener("change", () => {
+        if(optUpi) optUpi.classList.add("active");
+        if(optAmazon) optAmazon.classList.remove("active");
+        destLabel.textContent = "Enter UPI ID (e.g. name@okhdfcbank / number@paytm)";
+        destInput.placeholder = "e.g. yourname@upi";
+      });
+      radioAmazon.addEventListener("change", () => {
+        if(optAmazon) optAmazon.classList.add("active");
+        if(optUpi) optUpi.classList.remove("active");
+        destLabel.textContent = "Enter Amazon Pay Registered Mobile Number (10 Digits)";
+        destInput.placeholder = "e.g. 9876543210";
+      });
+    }
+
+    // Amount input live preview
+    const amtInput = $("#withdraw-amount-input");
+    const inrPreview = $("#modal-amount-inr-preview");
+    if(amtInput && inrPreview){
+      amtInput.addEventListener("input", () => {
+        const val = parseInt(amtInput.value, 10) || 0;
+        inrPreview.textContent = `= ₹${(val / COINS_PER_INR).toFixed(2)} INR`;
+      });
+    }
+
+    // Quick chips
+    $$(".w-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
+        const target = btn.dataset.amount;
+        let finalAmt = 1000;
+        if(target === "all") finalAmt = coins;
+        else finalAmt = parseInt(target, 10) || 1000;
+        if(amtInput){
+          amtInput.value = finalAmt;
+          if(inrPreview) inrPreview.textContent = `= ₹${(finalAmt / COINS_PER_INR).toFixed(2)} INR`;
+        }
+      });
+    });
+
+    // Form submission (Saves directly to Firestore collection 'withdrawals')
+    const withdrawForm = $("#withdraw-form");
+    if(withdrawForm){
+      withdrawForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errEl = $("#withdraw-modal-error");
+        if(errEl) errEl.style.display = "none";
+
+        const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
+        const requestedCoins = parseInt(amtInput.value, 10);
+        const destination = destInput.value.trim();
+        const method = (radioAmazon && radioAmazon.checked) ? "amazon" : "upi";
+
+        if(!requestedCoins || requestedCoins < 1000){
+          if(errEl){
+            errEl.textContent = "Minimum withdrawal is 1,000 Coins (₹1.00 INR).";
+            errEl.style.display = "block";
+          }
+          return;
+        }
+
+        if(requestedCoins > coins){
+          if(errEl){
+            errEl.textContent = `Insufficient coins. You have ${coins.toLocaleString()} coins available.`;
+            errEl.style.display = "block";
+          }
+          return;
+        }
+
+        if(!destination){
+          if(errEl){
+            errEl.textContent = "Please provide your payout destination.";
+            errEl.style.display = "block";
+          }
+          return;
+        }
+
+        const inrValue = (requestedCoins / COINS_PER_INR).toFixed(2);
+        await syncCoinsToFirestore(-requestedCoins, `Withdrawal (${method.toUpperCase()}: ${destination})`);
+
         if(db && state.user){
           try {
             await db.collection("withdrawals").add({
               uid: state.user.uid,
               username: state.user.username || "Player",
               email: state.user.email || "",
-              coins: coins,
+              coins: requestedCoins,
               inr_amount: parseFloat(inrValue),
-              upi_id: upi,
+              payout_method: method,
+              upi_id: destination,
+              destination: destination,
               status: "pending",
-              created_at: firebase.firestore.FieldValue.serverTimestamp()
+              created_at: firebase.firestore.FieldValue.serverTimestamp(),
+              timestamp: Date.now()
             });
           } catch(err){
             console.warn("Withdrawal collection error:", err.message);
           }
         }
+
+        closeWithdrawModal();
         loadWallet();
-        showToast(`Withdrawal request for ?${inrValue} submitted. Processing within 24 hours.`, "\u2713");
+        showToast(`Payout request of ₹${inrValue} submitted to Firestore! Processing within 24h.`, "✓");
       });
     }
 

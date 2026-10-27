@@ -3597,3 +3597,258 @@ body.is-native-app .apk-floating-banner {
 .theater-miner-bar, #theater-miner, .miner-hud, #miner-hud {
   display: none !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   REAL FIRESTORE WALLET & FINTECH WITHDRAWAL MODAL
+   ══════════════════════════════════════════════════════════════════ */
+.withdraw-modal-card {
+  position: relative;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  width: 480px;
+  max-width: 92vw;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+  animation: fadeIn 0.2s ease;
+}
+.withdraw-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.withdraw-modal-icon {
+  font-size: 2.2rem;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.withdraw-modal-title {
+  font-family: var(--font-head);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.withdraw-modal-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.withdraw-balance-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.wb-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wb-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.wb-val {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--cyber-gold);
+}
+.wb-val.inr {
+  color: #34D399;
+}
+
+.input-with-preview {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.input-with-preview input {
+  width: 100%;
+  padding-right: 120px !important;
+}
+.input-inr-preview {
+  position: absolute;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #34D399;
+  pointer-events: none;
+}
+.withdraw-chip-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.w-chip {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.w-chip:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.payout-type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.payout-type-option {
+  position: relative;
+  cursor: pointer;
+}
+.payout-type-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.payout-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  transition: all 0.15s ease;
+}
+.payout-type-option:hover .payout-type-card {
+  border-color: var(--neon-cyan);
+}
+.payout-type-option input:checked + .payout-type-card,
+.payout-type-option.active .payout-type-card {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}
+.payout-type-card strong {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+.payout-type-card small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.withdraw-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+.withdraw-modal-actions button {
+  flex: 1;
+}
+
+/* ── Live Payout Requests Table ── */
+.wallet-card-wide {
+  grid-column: 1 / -1;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.wallet-payout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 14px;
+}
+.wallet-payout-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.wallet-payout-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+.wallet-payout-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+.payout-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+.payout-status-badge.pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.payout-status-badge.approved, .payout-status-badge.completed, .payout-status-badge.paid {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.payout-status-badge.rejected {
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* White Theme Overrides */
+[data-theme="white"] .withdraw-modal-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
+[data-theme="white"] .withdraw-balance-banner {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="white"] .w-chip {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+[data-theme="white"] .payout-type-card {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+[data-theme="white"] .wallet-payout-table th {
+  background: #F1F5F9;
+  color: #475569;
+}
+[data-theme="white"] .wallet-payout-table td {
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
