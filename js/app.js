@@ -169,6 +169,7 @@
     if(!state.user) return;
     state.user.coins = Math.max(0, (state.user.coins || 0) + delta);
     setCachedUser(state.user);
+    try { localStorage.setItem("nx_coins", String(state.user.coins)); } catch(e){}
     updateCoinsDisplay(state.user.coins);
 
     saveLocalLog({
@@ -177,29 +178,31 @@
       type: delta >= 0 ? "reward" : "withdrawal"
     });
 
-    // Sync to Firestore if online
+    // Sync to Firestore if available
     if(db && state.user.uid){
       try {
         const userRef = db.collection("users").doc(state.user.uid);
         await userRef.set({
-          coins: state.user.coins,
-          username: state.user.username,
+          uid: state.user.uid,
+          username: state.user.username || "Gamer",
           avatar: state.user.avatar || "⚡",
+          coins: state.user.coins,
           email: state.user.email || "",
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          last_active: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
         // Update real-time Esports Leaderboard
         const lbRef = db.collection("leaderboard").doc(state.user.uid);
         await lbRef.set({
           uid: state.user.uid,
-          username: state.user.username,
+          username: state.user.username || "Gamer",
           avatar: state.user.avatar || "⚡",
           coins: state.user.coins,
+          hours: Number(Math.max(0.5, state.user.coins / 120).toFixed(1)),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
       } catch(err){
-        console.warn("Firestore sync deferred (running local cache):", err.message);
+        console.warn("Firestore sync saved to offline cache:", err.message);
       }
     }
   }
@@ -252,16 +255,19 @@
   }
 
   async function handleUserAuthenticated(fbUser){
+    const cached = getCachedUser();
+    const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
+
     let profileData = {
       uid: fbUser.uid,
       email: fbUser.email || "",
       username: fbUser.displayName || (fbUser.isAnonymous ? "Guest_" + fbUser.uid.slice(0, 5) : (fbUser.email ? fbUser.email.split("@")[0] : "CyberGamer")),
       avatar: "⚡",
-      coins: 100, // 100 welcome coins
+      coins: cachedCoins,
       is_guest: fbUser.isAnonymous
     };
 
-    // Attempt to fetch existing Firestore profile
+    // Attempt to fetch existing Firestore profile and sync
     if(db){
       try {
         const docRef = db.collection("users").doc(fbUser.uid);
@@ -270,16 +276,33 @@
           const d = docSnap.data();
           profileData.username = d.username || profileData.username;
           profileData.avatar = d.avatar || profileData.avatar;
-          profileData.coins = typeof d.coins === "number" ? d.coins : profileData.coins;
+          // Keep the highest between Firestore and local session to avoid coin loss
+          profileData.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, cachedCoins);
+          if(profileData.coins > (d.coins || 0)){
+            await docRef.set({ coins: profileData.coins }, { merge: true });
+          }
         } else {
-          // First time user: initialize document with welcome coins
           await docRef.set({
             ...profileData,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
+
+        // Real-time listener for user coin changes
+        if(state.firestoreUnsubUser) state.firestoreUnsubUser();
+        state.firestoreUnsubUser = docRef.onSnapshot(doc => {
+          if(doc && doc.exists){
+            const data = doc.data();
+            if(typeof data.coins === "number" && data.coins !== state.user.coins){
+              state.user.coins = data.coins;
+              setCachedUser(state.user);
+              updateCoinsDisplay(state.user.coins);
+            }
+          }
+        }, err => console.warn("User onSnapshot:", err));
+
       } catch(e){
-        console.warn("Using local profile state:", e.message);
+        console.warn("Using offline profile state:", e.message);
       }
     }
 
@@ -593,7 +616,7 @@
     `;
   }
 
-  // ── Active Game Theater Player & Anti-Cheat Mining ──
+  // ── Active Game Theater Player & Direct Touch Engine ──
   function launchGame(game){
     state.activeGame = game;
     switchView("theater");
@@ -607,19 +630,38 @@
     const container = $("#game-container");
     if(container) container.scrollTop = 0;
 
-    if(loader) loader.style.opacity = "1";
+    if(loader){
+      loader.classList.remove("hidden");
+      loader.classList.add("active");
+      loader.style.display = "flex";
+      loader.style.opacity = "1";
+      loader.style.pointerEvents = "auto";
+    }
     if(popout) popout.href = url;
 
     frame.src = url;
     $("#theater-title").textContent = game.title || "Arcade Play";
     $("#game-instructions-text").textContent = game.instructions || game.description || "Use touch screen, arrow keys, or mouse to play.";
 
-    frame.onload = () => {
-      if(loader) loader.style.opacity = "0";
+    const hideLoader = () => {
+      if(!loader) return;
+      loader.style.opacity = "0";
+      loader.style.pointerEvents = "none";
+      loader.classList.remove("active");
+      loader.classList.add("hidden");
+      setTimeout(() => {
+        if(loader.classList.contains("hidden")){
+          loader.style.display = "none";
+        }
+      }, 300);
+      // Ensure iframe receives direct touch focus
+      if(frame && frame.contentWindow){
+        try { frame.contentWindow.focus(); } catch(e){}
+      }
     };
-    setTimeout(() => {
-      if(loader) loader.style.opacity = "0";
-    }, 4000);
+
+    frame.onload = hideLoader;
+    setTimeout(hideLoader, 3500);
 
     startMiningSession(game);
   }
@@ -1145,6 +1187,46 @@
     $("#profile-lowspec").addEventListener("change", (e) => {
       if(e.target.checked) document.body.classList.add("low-spec");
       else document.body.classList.remove("low-spec");
+    });
+
+    
+    // Touch focus forwarding: tapping game area focuses the iframe
+    const gameCont = $("#game-container");
+    if(gameCont){
+      gameCont.addEventListener("touchstart", () => {
+        const f = $("#game-iframe");
+        if(f && f.contentWindow){
+          try { f.contentWindow.focus(); } catch(err){}
+        }
+      }, { passive: true });
+    }
+
+    // Auto-save coins on tab close or backgrounding
+    window.addEventListener("beforeunload", () => {
+      if(state.user){
+        setCachedUser(state.user);
+        if(db && state.user.uid){
+          try {
+            db.collection("users").doc(state.user.uid).set({
+              coins: state.user.coins,
+              last_active: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } catch(e){}
+        }
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if(document.visibilityState === "hidden" && state.user){
+        setCachedUser(state.user);
+        if(db && state.user.uid){
+          try {
+            db.collection("users").doc(state.user.uid).set({
+              coins: state.user.coins
+            }, { merge: true });
+          } catch(e){}
+        }
+      }
     });
 
     // Keyboard Shortcuts: ESC exits edge-to-edge expanded fit

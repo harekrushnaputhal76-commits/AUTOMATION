@@ -210,11 +210,11 @@
 
       <!-- Responsive Container without black dead space (#game-container) -->
       <div class="game-player-wrapper" id="game-container">
-        <div id="game-loader-overlay" class="game-loader-overlay">
+        <div id="game-loader-overlay" class="game-loader-overlay hidden" style="display:none; pointer-events:none;">
           <div class="loader-spinner"></div>
           <div class="loader-text">LAUNCHING HIGH-PERFORMANCE RUNTIME...</div>
         </div>
-        <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
+        <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope; payment; touch" scrolling="no" tabindex="0"></iframe>
       </div>
 
       <div id="game-instructions-drawer" class="instructions-drawer" style="display:none;">
@@ -400,4 +400,5 @@
 
 <script src="js/app.js"></script>
 </body>
+</html>
 </html>

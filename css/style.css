@@ -787,9 +787,13 @@ h1, h2, h3, h4 {
   position: relative;
   padding: 16px;
   box-sizing: border-box;
+  touch-action: manipulation;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-/* Dynamic iframe scaling: 100% responsive up to 1200x700 with cyan aura */
+/* Dynamic iframe scaling: 100% responsive up to 1200x700 with direct touch responsiveness */
 #game-container iframe,
 .game-player-wrapper iframe,
 .game-iframe {
@@ -802,6 +806,10 @@ h1, h2, h3, h4 {
   box-shadow: 0 8px 32px rgba(0, 240, 255, 0.15);
   background: #000000;
   display: block;
+  touch-action: auto !important;
+  pointer-events: auto !important;
+  -webkit-overflow-scrolling: touch;
+  z-index: 2;
 }
 
 /* Expanded Full-Window Theater Fit */
@@ -831,6 +839,17 @@ h1, h2, h3, h4 {
   justify-content: center;
   gap: 16px;
   transition: opacity 0.3s ease;
+  pointer-events: none; /* Crucial: Never block touch events when inactive */
+}
+.game-loader-overlay.active {
+  pointer-events: auto;
+  opacity: 1;
+  display: flex;
+}
+.game-loader-overlay.hidden {
+  pointer-events: none !important;
+  opacity: 0 !important;
+  display: none !important;
 }
 .loader-spinner {
   width: 48px;
@@ -2063,4 +2082,21 @@ html, body {
   font-size: 0.78rem;
   color: var(--neon-cyan);
   pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  #game-container,
+  .game-player-wrapper {
+    height: calc(100vh - 120px) !important;
+    padding: 2px !important;
+    touch-action: none !important;
+  }
+  #game-container iframe,
+  .game-player-wrapper iframe,
+  .game-iframe {
+    border-radius: 6px !important;
+    max-height: 100% !important;
+    touch-action: auto !important;
+    pointer-events: auto !important;
+  }
 }
