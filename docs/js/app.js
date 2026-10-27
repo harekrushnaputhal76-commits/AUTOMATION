@@ -365,6 +365,15 @@
     } catch(e){}
     updateCoinsDisplay(state.user.coins);
 
+    if(state.leaderboardCache && state.leaderboardCache.length > 0){
+      const curIdx = state.leaderboardCache.findIndex(p => p.uid === state.user.uid || p.id === state.user.uid);
+      if(curIdx !== -1){
+        state.leaderboardCache[curIdx].coins = state.user.coins;
+        state.leaderboardCache.sort((a,b) => (b.coins || 0) - (a.coins || 0));
+        renderLeaderboardUI(state.leaderboardCache);
+      }
+    }
+
     saveLocalLog({
       game_title: gameTitle || reason,
       coins_earned: Math.abs(delta),
@@ -543,7 +552,7 @@
     updateUserDisplay();
     switchView("discover");
     loadGames();
-    
+    initLeaderboardRealtime();
     renderAnalytics();
   }
 
@@ -892,6 +901,7 @@
     const titles = {
       discover: "Discover",
       analytics: "Platform Activity",
+      leaderboard: "Global Rankings & Esports",
       wallet: "Wallet & Balances",
       profile: "Profile & Settings",
       theater: "Now Playing",
@@ -906,6 +916,7 @@
     const instDrawer = $("#game-instructions-drawer");
     if(instDrawer) instDrawer.style.display = "none";
 
+    if(name === "leaderboard") initLeaderboardRealtime();
     if(name === "wallet") loadWallet();
     if(name === "analytics") renderAnalytics();
     if(name === "profile") renderProfileView();
@@ -2002,6 +2013,34 @@
     }
 
     
+    // Leaderboard Search Filter
+    const lbSearch = $("#leaderboard-search");
+    if(lbSearch){
+      lbSearch.addEventListener("input", (e) => {
+        state.leaderboardSearch = e.target.value;
+        applyLeaderboardFiltersAndRender();
+      });
+    }
+
+    // Leaderboard Filter Pills
+    $$(".lb-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $$(".lb-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.leaderboardFilter = btn.dataset.filter || "all";
+        applyLeaderboardFiltersAndRender();
+      });
+    });
+
+    // Leaderboard Live Sync Button
+    const lbRefresh = $("#leaderboard-refresh-btn");
+    if(lbRefresh){
+      lbRefresh.addEventListener("click", () => {
+        initLeaderboardRealtime();
+        showToast("Live player rankings refreshed from Firestore.", "🔄");
+      });
+    }
+
     // Profile View & Theme Setup
     renderProfileView();
 

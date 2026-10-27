@@ -130,6 +130,7 @@
     <div class="sidebar-nav">
       <button class="nav-item active" data-view="discover"><span class="nav-icon">🎮</span><span class="nav-label">Discover</span></button>
       <button class="nav-item" data-view="analytics"><span class="nav-icon">📊</span><span class="nav-label">Analytics</span></button>
+      <button class="nav-item" data-view="leaderboard"><span class="nav-icon">🏆</span><span class="nav-label">Ranks</span></button>
       <button class="nav-item" data-view="wallet"><span class="nav-icon">🪙</span><span class="nav-label">Wallet</span></button>
       <button class="nav-item" data-view="profile"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></button>
     </div>
@@ -316,6 +317,78 @@
     </section>
 
     
+
+    <!-- Real-Time Esports Leaderboard & Global Rankings View -->
+    <section id="view-leaderboard" class="view">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Global Rankings & Esports</h2>
+          <p class="section-subtitle">Real-time player standings based on total Coins earned from gameplay and sponsor rewards.</p>
+        </div>
+        <div class="admin-header-actions">
+          <button id="leaderboard-refresh-btn" class="btn-secondary btn-sm">🔄 Live Sync</button>
+        </div>
+      </div>
+
+      <!-- Current Player Live Rank Spotlight Card -->
+      <div id="user-rank-spotlight" class="user-rank-spotlight-card" style="display:none; margin-bottom: 24px;">
+        <div class="user-rank-badge-wrap">
+          <span class="user-rank-label">YOUR RANK</span>
+          <span id="user-rank-number" class="user-rank-number rank-gold">#1</span>
+        </div>
+        <div class="user-rank-profile-wrap">
+          <div id="user-rank-avatar" class="user-rank-avatar-box">👤</div>
+          <div class="user-rank-info">
+            <div class="user-rank-name-row">
+              <h3 id="user-rank-name" class="user-rank-name">Player</h3>
+              <span id="user-rank-tier" class="tier-pill tier-bronze">Bronze</span>
+            </div>
+            <div class="user-rank-stats-row">
+              <span id="user-rank-coins" class="user-rank-coins">0 Coins</span>
+              <span class="rank-stat-divider">·</span>
+              <span id="user-rank-inr" class="user-rank-inr">~₹0.00 Value</span>
+            </div>
+          </div>
+        </div>
+        <div class="user-rank-status-box">
+          <span id="user-rank-status-title" class="user-rank-status-title">👑 Reigning Leader</span>
+          <p id="user-rank-status-desc" class="user-rank-status-desc">You are at the top of the global player leaderboard!</p>
+        </div>
+      </div>
+
+      <!-- Top 3 Live Podium Cards -->
+      <div id="leaderboard-podium" class="leaderboard-podium"></div>
+
+      <!-- Search & Tier Filter Bar -->
+      <div class="leaderboard-filter-bar">
+        <div class="leaderboard-search-wrap">
+          <input type="text" id="leaderboard-search" placeholder="Search real players by name or UID..." autocomplete="off">
+        </div>
+        <div class="leaderboard-tier-filters">
+          <button class="lb-filter-btn active" data-filter="all">All Players</button>
+          <button class="lb-filter-btn" data-filter="top10">Top 10</button>
+          <button class="lb-filter-btn" data-filter="master">Grand Master (8k+)</button>
+          <button class="lb-filter-btn" data-filter="diamond">Diamond (4k+)</button>
+          <button class="lb-filter-btn" data-filter="gold">Gold (2k+)</button>
+          <button class="lb-filter-btn" data-filter="silver">Silver (&lt;2k)</button>
+        </div>
+      </div>
+
+      <!-- Live Leaderboard Table -->
+      <div class="leaderboard-table-wrap">
+        <div class="leaderboard-table-header">
+          <span class="th-rank">Rank</span>
+          <span class="th-player">Player</span>
+          <span class="th-coins">Coins</span>
+          <span class="th-inr">Value</span>
+          <span class="th-tier">Tier</span>
+          <span class="th-status">Account</span>
+        </div>
+        <div id="leaderboard-body" class="leaderboard-table-body">
+          <div class="leaderboard-loading">Connecting to live Firestore player database...</div>
+        </div>
+      </div>
+    </section>
 
     <!-- Wallet View (100% Real Firestore Balances, Live Withdrawals & Transaction Ledger) -->
     <section id="view-wallet" class="view">
@@ -892,6 +965,7 @@
   <nav id="mobile-nav">
     <button class="mob-nav-item active" data-view="discover"><span>🎮</span><span>Games</span></button>
     <button class="mob-nav-item" data-view="analytics"><span>📊</span><span>Stats</span></button>
+    <button class="mob-nav-item" data-view="leaderboard"><span>🏆</span><span>Ranks</span></button>
     <button class="mob-nav-item" data-view="wallet"><span>🪙</span><span>Wallet</span></button>
     <button class="mob-nav-item" data-view="profile"><span>👤</span><span>Profile</span></button>
   </nav>
