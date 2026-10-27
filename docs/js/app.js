@@ -155,12 +155,48 @@
     const name = state.user.username || "Gamer";
     const hudUser = $("#hud-user");
     if(hudUser) hudUser.textContent = `${av} ${name}`;
+    updateCoinsDisplay(state.user.coins || 0);
+  }
+
+  function renderProfileView(){
+    if(!state.user) return;
+    const av = state.user.avatar || "⚡";
+    const name = state.user.username || "Gamer";
+    const hudUser = $("#hud-user");
+    if(hudUser) hudUser.textContent = `${av} ${name}`;
     const avDisplay = $("#avatar-display");
     if(avDisplay) avDisplay.textContent = av;
     const profUser = $("#profile-username");
     if(profUser) profUser.value = name;
     const profEmail = $("#profile-email");
-    if(profEmail) profEmail.value = state.user.email || (state.user.is_guest ? "Guest Account (Local/Anonymous)" : "Google / Cloud Account");
+    if(profEmail) profEmail.value = state.user.email || (state.user.is_guest ? "Guest Account (Local Session)" : "Google / Cloud Account");
+
+    // Dynamically render avatar options with user's current avatar active
+    const avOpts = $("#avatar-options");
+    if(avOpts){
+      avOpts.innerHTML = "";
+      AVATARS.forEach(a => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "avatar-opt" + (a === av ? " active" : "");
+        btn.textContent = a;
+        btn.addEventListener("click", () => {
+          $$(".avatar-opt").forEach(x => x.classList.remove("active"));
+          btn.classList.add("active");
+          if(avDisplay) avDisplay.textContent = a;
+          state.user.avatar = a;
+          setCachedUser(state.user);
+          if(hudUser) hudUser.textContent = `${a} ${state.user.username}`;
+          if(db && state.user.uid){
+            try {
+              db.collection("users").doc(state.user.uid).set({ avatar: a }, { merge: true });
+              db.collection("leaderboard").doc(state.user.uid).set({ avatar: a }, { merge: true });
+            } catch(e){}
+          }
+        });
+        avOpts.appendChild(btn);
+      });
+    }
     updateCoinsDisplay(state.user.coins || 0);
   }
 
@@ -461,10 +497,16 @@
     $("#view-title").textContent = titles[name] || "NexPlay Arcade";
     state.currentView = name;
 
+    // Close mobile navigation drawer if open
+    const sidebar = $("#sidebar");
+    if(sidebar) sidebar.classList.remove("open");
+    const instDrawer = $("#game-instructions-drawer");
+    if(instDrawer) instDrawer.style.display = "none";
+
     if(name === "wallet") loadWallet();
     if(name === "leaderboard") loadLeaderboardFallbackIfEmpty();
     if(name === "analytics") renderAnalytics();
-    if(name === "profile") updateUserDisplay();
+    if(name === "profile") renderProfileView();
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1139,22 +1181,8 @@
       });
     }
 
-    // Profile Settings & Avatars
-    const avOpts = $("#avatar-options");
-    if(avOpts){
-      avOpts.innerHTML = "";
-      AVATARS.forEach(a => {
-        const el = document.createElement("div");
-        el.className = "avatar-opt" + (state.user && a === state.user.avatar ? " active" : "");
-        el.textContent = a;
-        el.addEventListener("click", () => {
-          $$(".avatar-opt").forEach(x => x.classList.remove("active"));
-          el.classList.add("active");
-          $("#avatar-display").textContent = a;
-        });
-        avOpts.appendChild(el);
-      });
-    }
+    // Profile View Initialization
+    renderProfileView();
 
     $("#save-profile").addEventListener("click", async () => {
       const newName = $("#profile-username").value.trim();
