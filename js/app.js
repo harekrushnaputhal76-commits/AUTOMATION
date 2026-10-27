@@ -411,7 +411,10 @@
   function showAuthGate(msg = ""){
     const gate = $("#auth-gate");
     const appEl = $("#app");
-    if(gate) gate.classList.remove("hidden");
+    if(gate){
+      gate.classList.remove("hidden");
+      gate.style.display = "flex";
+    }
     if(appEl) appEl.style.display = "none";
     if(msg){
       const err = $("#auth-error");
@@ -425,7 +428,10 @@
   function hideAuthGate(){
     const gate = $("#auth-gate");
     const appEl = $("#app");
-    if(gate) gate.classList.add("hidden");
+    if(gate){
+      gate.classList.add("hidden");
+      gate.style.display = "none";
+    }
     if(appEl) appEl.style.display = "flex";
   }
 
@@ -626,7 +632,10 @@
     provider.setCustomParameters({ prompt: 'select_account' });
 
     try {
-      await auth.signInWithPopup(provider);
+      const res = await auth.signInWithPopup(provider);
+      if(res && res.user){
+        await handleUserAuthenticated(res.user);
+      }
       showToast("Signed in with Google! Cloud profile connected.", "✓");
     } catch(err){
       console.warn("Google sign-in exception:", err.code, err.message);
@@ -780,7 +789,7 @@
       if(emailAuthMode === "register"){
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         const displayName = username || email.split("@")[0];
-        if(cred.user){
+        if(cred && cred.user){
           try { await cred.user.updateProfile({ displayName: displayName }); } catch(pe){}
           if(db){
             try {
@@ -796,10 +805,14 @@
               });
             } catch(de){}
           }
+          await handleUserAuthenticated(cred.user);
         }
         showToast("Account created successfully! Starting with 0 coins.", "✓");
       } else {
-        await auth.signInWithEmailAndPassword(email, password);
+        const userCred = await auth.signInWithEmailAndPassword(email, password);
+        if(userCred && userCred.user){
+          await handleUserAuthenticated(userCred.user);
+        }
         showToast("Signed in successfully with email!", "✓");
       }
     } catch(err){
@@ -853,6 +866,12 @@
         theater.classList.remove("active");
         theater.classList.remove("expanded");
         theater.style.display = "none";
+      }
+    } else {
+      const theater = $("#view-theater");
+      if(theater){
+        theater.style.removeProperty("display");
+        theater.style.display = "flex";
       }
     }
 
@@ -1902,34 +1921,6 @@
     }
 
     
-    // Leaderboard Search Filter
-    const lbSearch = $("#leaderboard-search");
-    if(lbSearch){
-      lbSearch.addEventListener("input", (e) => {
-        state.leaderboardSearch = e.target.value;
-        applyLeaderboardFiltersAndRender();
-      });
-    }
-
-    // Leaderboard Filter Pills
-    $$(".lb-filter-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        $$(".lb-filter-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        state.leaderboardFilter = btn.dataset.filter || "all";
-        applyLeaderboardFiltersAndRender();
-      });
-    });
-
-    // Leaderboard Refresh Button
-    const lbRefresh = $("#leaderboard-refresh-btn");
-    if(lbRefresh){
-      lbRefresh.addEventListener("click", () => {
-        
-        showToast("Leaderboard refreshed from live Firestore.", "🔄");
-      });
-    }
-
     // Profile View & Theme Setup
     renderProfileView();
 
@@ -2297,9 +2288,41 @@
 
       renderAdminWithdrawalsTable(allWithdrawals);
 
+      const noticeOk = document.getElementById("admin-firestore-notice");
+      if(noticeOk) noticeOk.style.display = "none";
     } catch(err){
       console.error("Admin dashboard fetch error:", err);
       showToast("Error loading Firestore records: " + err.message, "\u26a0");
+      const notice = document.getElementById("admin-firestore-notice");
+      if(notice && (err.code === "permission-denied" || (err.message && err.message.toLowerCase().includes("permission")))){
+        notice.style.display = "block";
+        notice.innerHTML = `
+          <div style="background:rgba(255, 170, 0, 0.12); border:1px solid #ffaa00; border-radius:12px; padding:18px; margin-bottom:20px;">
+            <div style="font-size:1rem; font-weight:700; color:#ffaa00; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+              <span>⚠️</span> Cloud Firestore Security Rules are Locked (Permission Denied)
+            </div>
+            <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.5; margin-bottom:12px;">
+              Your Cloud Firestore database is currently in locked production mode (<code>allow read, write: if false;</code>). This blocks all client reads and writes, which is why collections appear empty in your Firebase Console.
+            </p>
+            <div style="font-size:0.85rem; color:#00F0FF; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px; font-family:monospace; margin-bottom:12px; white-space:pre-wrap;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <a href="https://console.firebase.google.com/project/nextgame-b0ff3/firestore/rules" target="_blank" rel="noopener noreferrer" class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; padding:8px 16px;">
+                ⚙️ Open Firestore Rules in Firebase Console
+              </a>
+              <button type="button" class="btn-secondary" style="font-size:0.85rem; padding:8px 16px;" onclick="navigator.clipboard.writeText('rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}'); this.textContent='✓ Rules Copied!'; setTimeout(()=>{ this.textContent='📋 Copy Rules'; }, 2000);">
+                📋 Copy Rules
+              </button>
+            </div>
+          </div>
+        `;
+      }
     }
   }
 
