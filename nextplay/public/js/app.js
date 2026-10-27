@@ -1949,9 +1949,20 @@
         const destination = destInput.value.trim();
         const method = (radioAmazon && radioAmazon.checked) ? "amazon" : "upi";
 
-        if(!requestedCoins || requestedCoins < 1000){
+        const MIN_WITHDRAW_INR = 500;
+        const MIN_WITHDRAW_COINS = 500000; // 500 Rupees = 500,000 Coins (1,000 Coins = 1 INR)
+
+        if(coins < MIN_WITHDRAW_COINS || requestedCoins < MIN_WITHDRAW_COINS){
           if(errEl){
-            errEl.textContent = "Minimum withdrawal is 1,000 Coins (₹1.00 INR).";
+            const curInr = (coins / COINS_PER_INR).toFixed(2);
+            errEl.innerHTML = `
+              <div style="background:rgba(255, 170, 0, 0.12); border:1px solid #ffaa00; border-radius:10px; padding:12px 14px; color:#ffaa00; font-size:0.84rem; line-height:1.45; text-align:left;">
+                <strong>⚠️ Payout Security Compliance Policy:</strong><br>
+                Under payment gateway processing compliance, withdrawals require a minimum accumulated balance of <strong>₹500.00 INR</strong> (500,000 Coins).<br>
+                Your current balance: <strong>₹${curInr}</strong> (${coins.toLocaleString()} Coins).<br>
+                Keep playing games & watching sponsor ads (+10 Coins/ad) to reach your ₹500 payout!
+              </div>
+            `;
             errEl.style.display = "block";
           }
           return;

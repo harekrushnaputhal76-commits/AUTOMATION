@@ -48,6 +48,7 @@ def main():
     print("\n[1/4] Synchronizing local targets (root -> docs & nextplay/public)...")
     files_to_sync = [
         "index.html",
+        "ads.txt",
         os.path.join("css", "style.css"),
         os.path.join("js", "app.js")
     ]
