@@ -42,6 +42,13 @@
   const IDLE_TIMEOUT_MS = 60000; // Pause session after 60s of inactivity
 
   const AVATARS = ["⚡", "🔥", "🎯", "👾", "🤖", "🕹️", "🦊", "⚔️", "🛡️", "🚀", "👑", "💎"];
+  const AUTHORIZED_ADMIN_EMAIL = "harekrushnaputhal76@gmail.com";
+
+  function isAuthorizedAdmin(u){
+    if(!u) return false;
+    const email = (u.email || "").toLowerCase().trim();
+    return email === AUTHORIZED_ADMIN_EMAIL.toLowerCase();
+  }
 
   // Embedded High-Speed Offline Fallback Games
   const FALLBACK_GAMES = [
@@ -428,10 +435,9 @@
   }
 
   async function initAuth(){
-    if(sessionStorage.getItem("nx_is_admin") === "true"){
-      state.isAdmin = true;
-      updateAdminNavVisibility();
-    }
+    const cached = getCachedUser();
+    state.isAdmin = isAuthorizedAdmin(cached);
+    updateAdminNavVisibility();
 
     // Setup listener on Firebase Auth state
     if(auth){
@@ -462,10 +468,14 @@
   }
 
   async function handleUserAuthenticated(fbUser){
-    if(sessionStorage.getItem("nx_is_admin") === "true"){
-      state.isAdmin = true;
-      updateAdminNavVisibility();
+    const isOwner = fbUser && fbUser.email && (fbUser.email.toLowerCase().trim() === AUTHORIZED_ADMIN_EMAIL.toLowerCase());
+    state.isAdmin = isOwner;
+    if(isOwner){
+      sessionStorage.setItem("nx_is_admin", "true");
+    } else {
+      sessionStorage.removeItem("nx_is_admin");
     }
+    updateAdminNavVisibility();
     const cached = getCachedUser();
     const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
 
@@ -2060,10 +2070,8 @@
 
   
   // ?? Admin Portal, Access Control & Live Firestore Administration ??
-  const ADMIN_PASSKEY = "admin76";
-
   function updateAdminNavVisibility(){
-    const show = state.isAdmin ? "flex" : "none";
+    const show = (state.isAdmin && isAuthorizedAdmin(state.user)) ? "flex" : "none";
     document.querySelectorAll(".nav-admin-item, .mob-admin-item").forEach(el => {
       el.style.display = show;
     });
@@ -2072,11 +2080,11 @@
   function showAdminAuthModal(){
     const modal = document.getElementById("admin-auth-modal");
     const err = document.getElementById("admin-auth-error");
-    const input = document.getElementById("admin-passkey-input");
-    if(err) err.style.display = "none";
-    if(input) { input.value = ""; }
+    if(err) {
+      err.style.display = "none";
+      err.innerHTML = "";
+    }
     if(modal) modal.style.display = "flex";
-    if(input) input.focus();
   }
 
   function hideAdminAuthModal(){
@@ -2084,10 +2092,72 @@
     if(modal) modal.style.display = "none";
   }
 
+  async function signInAdminWithGoogle(){
+    const err = document.getElementById("admin-auth-error");
+    if(err){
+      err.style.display = "none";
+      err.innerHTML = "";
+    }
+
+    if(!auth){
+      if(err){
+        err.textContent = "Firebase Authentication is not available.";
+        err.style.display = "block";
+      }
+      return;
+    }
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+      const result = await auth.signInWithPopup(provider);
+      const fbUser = result ? result.user : null;
+      const email = fbUser && fbUser.email ? fbUser.email.toLowerCase().trim() : "";
+
+      if(email === AUTHORIZED_ADMIN_EMAIL.toLowerCase()){
+        state.isAdmin = true;
+        sessionStorage.setItem("nx_is_admin", "true");
+        hideAdminAuthModal();
+        await handleUserAuthenticated(fbUser);
+        updateAdminNavVisibility();
+        switchView("admin");
+        showToast("Owner identity confirmed! Welcome to Admin Portal.", "🛡️");
+      } else {
+        // Not the authorized email!
+        state.isAdmin = false;
+        sessionStorage.removeItem("nx_is_admin");
+        updateAdminNavVisibility();
+        if(err){
+          err.innerHTML = `
+            <div style="background:rgba(255,0,85,0.12); border:1px solid #ff4d79; border-radius:10px; padding:12px; margin-top:10px; text-align:left;">
+              <div style="font-weight:700; color:#ff4d79; margin-bottom:4px; font-size:0.9rem;">🚫 Access Denied</div>
+              <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:4px;">Signed in as: <strong style="color:#ffffff;">${escapeHtml(email || "unknown")}</strong></div>
+              <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">Only <strong style="color:var(--neon-cyan);">${escapeHtml(AUTHORIZED_ADMIN_EMAIL)}</strong> is authorized to access the Admin Control Center.</div>
+            </div>
+          `;
+          err.style.display = "block";
+        }
+      }
+    } catch(e){
+      console.warn("Admin sign-in error:", e.code, e.message);
+      if(e.code === "auth/unauthorized-domain"){
+        renderUnauthorizedDomainError(err);
+      } else if(e.code !== "auth/popup-closed-by-user"){
+        if(err){
+          err.textContent = e.message;
+          err.style.display = "block";
+        }
+      }
+    }
+  }
+
   // 100% Real Live Firestore Fetching with Caching & 0ms Search
   async function loadAdminDashboard(){
-    if(!state.isAdmin){
-      showToast("Access denied: Admin passkey required.", "\u26a0");
+    if(!state.isAdmin || !isAuthorizedAdmin(state.user)){
+      showToast("Access denied: Only " + AUTHORIZED_ADMIN_EMAIL + " is authorized.", "⚠️");
       switchView("discover");
       return;
     }
@@ -2336,7 +2406,7 @@
   };
 
   window.adminResetCoins = async function(uid){
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     if(!confirm(`Are you sure you want to reset coins to 0 for player ${uid}?`)) return;
     try {
       await db.collection("users").doc(uid).set({ coins: 0 }, { merge: true });
@@ -2349,7 +2419,7 @@
   };
 
   window.adminToggleBanUser = async function(uid, isCurrentlyBanned){
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     try {
       const newStatus = !isCurrentlyBanned;
       await db.collection("users").doc(uid).set({
@@ -2383,7 +2453,7 @@
   };
 
   window.adminUnblockTarget = async function(target){
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     try {
       const modRef = db.collection("settings").doc("moderation");
       const modDoc = await modRef.get();
@@ -2415,7 +2485,7 @@
   };
 
   window.adminUpdateWithdrawal = async function(docId, newStatus){
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     try {
       await db.collection("withdrawals").doc(docId).update({
         status: newStatus,
@@ -2430,7 +2500,7 @@
 
   async function handleAdminBlockForm(e){
     e.preventDefault();
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     const target = document.getElementById("admin-block-target").value.trim();
     const reason = document.getElementById("admin-block-reason").value.trim() || "Administrative suspension";
     if(!target){
@@ -2482,7 +2552,7 @@
 
   async function handleAdminCoinAdjust(e){
     e.preventDefault();
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     const uid = document.getElementById("admin-adjust-uid").value.trim();
     const amount = parseInt(document.getElementById("admin-adjust-amount").value, 10);
     if(!uid || isNaN(amount)){
@@ -2562,7 +2632,7 @@
   // Live Announcement Banner Controls
   async function handleAdminAnnouncement(e){
     e.preventDefault();
-    if(!db || !state.isAdmin) return;
+    if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
     const input = document.getElementById("admin-announcement-input");
     const msg = input ? input.value.trim() : "";
     try {
@@ -2595,63 +2665,42 @@
   }
 
   function setupAdminEventListeners(){
-    // Admin access modal toggle
+    // Admin access entry button
     const accessBtn = document.getElementById("admin-access-btn");
-    if(accessBtn) accessBtn.addEventListener("click", showAdminAuthModal);
+    if(accessBtn){
+      accessBtn.addEventListener("click", () => {
+        if(state.user && isAuthorizedAdmin(state.user)){
+          state.isAdmin = true;
+          sessionStorage.setItem("nx_is_admin", "true");
+          updateAdminNavVisibility();
+          hideAdminAuthModal();
+          hideAuthGate();
+          switchView("admin");
+          showToast("Welcome back, Owner!", "🛡️");
+        } else {
+          showAdminAuthModal();
+        }
+      });
+    }
 
     const cancelBtn = document.getElementById("admin-modal-cancel");
     if(cancelBtn) cancelBtn.addEventListener("click", hideAdminAuthModal);
 
-    // Admin Auth verification form
-    const authForm = document.getElementById("admin-auth-form");
-    if(authForm){
-      authForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const err = document.getElementById("admin-auth-error");
-        const pass = document.getElementById("admin-passkey-input").value.trim();
-
-        if(pass === ADMIN_PASSKEY || pass === "admin2025" || pass === "nexplay76"){
-          state.isAdmin = true;
-          sessionStorage.setItem("nx_is_admin", "true");
-          hideAdminAuthModal();
-          hideAuthGate();
-          if(!state.user){
-            state.user = {
-              uid: "admin_master",
-              username: "Administrator",
-              avatar: "👤",
-              coins: 10000,
-              is_admin: true
-            };
-            setCachedUser(state.user);
-            updateUserDisplay();
-          }
-          updateAdminNavVisibility();
-          switchView("admin");
-          showToast("Admin authenticated. Live database connected.", "\u2713");
-        } else {
-          if(err){
-            err.textContent = "Access denied: Invalid administrator passkey.";
-            err.style.display = "block";
-          }
-        }
-      });
-    }
+    // Google Sign-In button for Admin verification
+    const adminGoogleBtn = document.getElementById("admin-google-signin-btn");
+    if(adminGoogleBtn) adminGoogleBtn.addEventListener("click", signInAdminWithGoogle);
 
     // Refresh, exit & export buttons
     const refreshBtn = document.getElementById("admin-refresh-btn");
     if(refreshBtn) refreshBtn.addEventListener("click", () => {
       loadAdminDashboard();
-      showToast("Live data refreshed from Firestore.", "\u2713");
+      showToast("Live data refreshed from Firestore.", "✓");
     });
 
     const exitBtn = document.getElementById("admin-exit-btn");
     if(exitBtn) exitBtn.addEventListener("click", () => {
-      state.isAdmin = false;
-      sessionStorage.removeItem("nx_is_admin");
-      updateAdminNavVisibility();
       switchView("discover");
-      showToast("Exited admin mode.", "\u2139");
+      showToast("Exited admin mode.", "ℹ");
     });
 
     const exportBtn = document.getElementById("admin-export-csv-btn");
@@ -2671,7 +2720,7 @@
 
     const clearAnnBtn = document.getElementById("admin-clear-announcement-btn");
     if(clearAnnBtn) clearAnnBtn.addEventListener("click", async () => {
-      if(!db || !state.isAdmin) return;
+      if(!db || !state.isAdmin || !isAuthorizedAdmin(state.user)) return;
       try {
         await db.collection("settings").doc("announcement").set({ is_active: false, message: "" });
         const input = document.getElementById("admin-announcement-input");
