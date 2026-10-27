@@ -124,19 +124,19 @@
     <!-- Theater Mode -->
     <section id="view-theater" class="view theater-view">
       <div class="theater-hud">
-        <button id="theater-back" class="btn-ghost">← Back</button>
+        <button id="theater-back" class="btn-ghost">← Back to Discover</button>
         <span id="theater-title" class="theater-game-title"></span>
         <div class="theater-controls">
           <a id="theater-popout" class="btn-icon" target="_blank" rel="noopener" title="Open Fullscreen in New Tab">↗</a>
-          <button id="theater-mute" class="btn-icon" title="Mute/Unmute">🔊</button>
-          <button id="theater-expand" class="btn-icon" title="Expand">⛶</button>
           <button id="theater-fullscreen" class="btn-icon" title="Fullscreen">⤢</button>
+          <button id="theater-expand" class="btn-icon" title="Toggle Theater Fit">⛶</button>
+          <button id="theater-mute" class="btn-icon" title="Mute/Unmute">🔊</button>
           <button id="theater-info" class="btn-icon" title="Instructions">ℹ</button>
         </div>
       </div>
       <div class="theater-miner-bar" id="theater-miner">
         <span class="miner-dot"></span>
-        <span>Coin Miner Active</span>
+        <span>Anti-Cheat Coin Miner Active (+2 Coins/min)</span>
         <span id="theater-session-coins">+0 ⬡</span>
         <span id="theater-session-time">0:00</span>
       </div>
@@ -147,10 +147,10 @@
           <button class="btn-primary" id="resume-btn">Click to Resume</button>
         </div>
       </div>
-      <div class="theater-stage">
+      <div class="game-player-wrapper" id="game-player-wrapper">
         <div id="game-loader-overlay" class="game-loader-overlay">
           <div class="loader-spinner"></div>
-          <div class="loader-text">INITIALIZING QUANTUM RUNTIME...</div>
+          <div class="loader-text">LAUNCHING HARDWARE-ACCELERATED RUNTIME...</div>
         </div>
         <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
       </div>
@@ -158,52 +158,141 @@
         <h3>Game Instructions</h3>
         <p id="game-instructions-text"></p>
       </div>
-      <!-- AdSense Below Player Slot -->
-      <div id="adsense-below-player-slot" class="ad-slot ad-below-player" style="display:none;"></div>
     </section>
 
     <!-- Analytics View -->
     <section id="view-analytics" class="view">
-      <h2 class="section-title">Live Analytics & Prize Pool</h2>
+      <h2 class="section-title">Live Gaming Analytics & Prize Pool</h2>
       <div class="analytics-grid">
-        <div class="stat-card"><span class="stat-label">Total Gamers</span><span id="stat-users" class="stat-value">—</span></div>
-        <div class="stat-card"><span class="stat-label">Coins Mined</span><span id="stat-coins" class="stat-value">—</span></div>
-        <div class="stat-card accent"><span class="stat-label">Active Now</span><span id="stat-active" class="stat-value">—</span></div>
-        <div class="stat-card pink"><span class="stat-label">Prize Pool</span><span id="stat-pool" class="stat-value">—</span></div>
+        <div class="stat-card accent">
+          <span class="stat-label">Total Games Played</span>
+          <span id="stat-games-played" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Minutes Spent</span>
+          <span id="stat-minutes-spent" class="stat-value">0m</span>
+        </div>
+        <div class="stat-card gold">
+          <span class="stat-label">Coins Earned</span>
+          <span id="stat-coins-earned" class="stat-value">0 ⬡</span>
+        </div>
+        <div class="stat-card pink">
+          <span class="stat-label">Prize Pool (10%)</span>
+          <span id="stat-pool" class="stat-value">₹0.00</span>
+        </div>
       </div>
-      <div class="chart-row">
-        <div class="chart-card"><canvas id="chart-activity"></canvas></div>
-        <div class="chart-card"><canvas id="chart-pool"></canvas></div>
+
+      <!-- CSS Flex/Grid Activity Graph -->
+      <div class="analytics-chart-container">
+        <div class="chart-header-row">
+          <div>
+            <h3 class="chart-card-title">24-Hour Mining & Gamer Activity</h3>
+            <p class="chart-card-desc">Simulated telemetry of server coin throughput & active sessions</p>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot cyan"></span> Throughput</span>
+            <span class="legend-item"><span class="legend-dot pink"></span> Active Miners</span>
+          </div>
+        </div>
+        <div class="activity-bars-grid" id="activity-bars-grid">
+          <!-- Dynamic CSS Flex Bars populated by JS -->
+        </div>
+      </div>
+
+      <!-- Prize Pool Economics Breakdown -->
+      <div class="pool-breakdown-row">
+        <div class="pool-card">
+          <span class="pool-badge cyan">COMMUNITY POOL (10%)</span>
+          <div class="pool-amount" id="stat-community-pool">₹0.00</div>
+          <p class="pool-desc">Directly distributed to top leaderboard champions at season finale.</p>
+        </div>
+        <div class="pool-card">
+          <span class="pool-badge">PLATFORM RESERVE (90%)</span>
+          <div class="pool-amount" id="stat-platform-reserve">₹0.00</div>
+          <p class="pool-desc">Powers cloud server bandwidth, game monetization APIs, and anti-cheat infrastructure.</p>
+        </div>
       </div>
     </section>
 
     <!-- Leaderboard View -->
     <section id="view-leaderboard" class="view">
-      <h2 class="section-title">Global Rankings</h2>
+      <div class="section-header-row">
+        <h2 class="section-title">Global Esports Rankings</h2>
+        <span class="season-pill">Season 1 Active</span>
+      </div>
       <div class="leaderboard-podium" id="leaderboard-podium"></div>
-      <div class="leaderboard-table" id="leaderboard-body"></div>
+      <div class="leaderboard-table-wrap">
+        <div class="leaderboard-table" id="leaderboard-body"></div>
+      </div>
     </section>
 
     <!-- Wallet View -->
     <section id="view-wallet" class="view">
-      <h2 class="section-title">Wallet & Vault</h2>
-      <div class="wallet-header">
-        <div class="wallet-balance">
-          <span class="wallet-coins" id="wallet-coins">0</span><span class="wallet-label">Coins</span>
-          <span class="wallet-inr" id="wallet-inr">= ₹0.00</span>
+      <div class="wallet-banner">
+        <div class="wallet-balance-box">
+          <span class="wallet-badge">LIVE REWARD VAULT</span>
+          <div class="wallet-coins-row">
+            <span class="wallet-coins" id="wallet-coins">0</span>
+            <span class="wallet-unit">COINS</span>
+          </div>
+          <div class="wallet-inr-tag" id="wallet-inr">= ₹0.00 INR (100 Coins = ₹1)</div>
         </div>
-        <div class="wallet-converter">
-          <input type="number" id="converter-input" placeholder="Enter coins" min="0">
-          <span id="converter-result">= ₹0.00</span>
+        <div class="wallet-actions-box">
+          <button class="btn-primary" id="claim-bonus-btn">⚡ Claim +50 Daily Bonus</button>
+          <button class="btn-secondary" id="withdraw-btn">💳 Redeem Payout (UPI / Gift Card)</button>
         </div>
       </div>
-      <div class="redeem-progress">
-        <div class="progress-bar"><div class="progress-fill" id="redeem-progress-fill"></div></div>
-        <p class="redeem-status" id="redeem-status"></p>
-        <p class="payout-badge" id="payout-badge"></p>
+
+      <div class="wallet-grid">
+        <!-- Live Currency Converter -->
+        <div class="wallet-card">
+          <h3 class="card-title">Instant Currency Converter</h3>
+          <p class="card-desc">Guaranteed fixed payout rate: <strong>100 Coins = ₹1.00 INR</strong></p>
+          <div class="converter-box">
+            <div class="converter-input-wrap">
+              <input type="number" id="converter-input" placeholder="Enter coins (e.g. 500)" min="0" step="50">
+              <span class="input-suffix">⬡ COINS</span>
+            </div>
+            <div class="converter-equals">=</div>
+            <div class="converter-output-wrap">
+              <span class="converter-inr" id="converter-result">₹0.00</span>
+              <span class="output-suffix">INR</span>
+            </div>
+          </div>
+          <div class="converter-chips">
+            <button class="chip-btn" data-coins="500">+500 (₹5)</button>
+            <button class="chip-btn" data-coins="1000">+1,000 (₹10)</button>
+            <button class="chip-btn" data-coins="2500">+2,500 (₹25)</button>
+            <button class="chip-btn" data-coins="max">MAX BALANCE</button>
+          </div>
+        </div>
+
+        <!-- Payout Progress Widget -->
+        <div class="wallet-card">
+          <h3 class="card-title">Season 1 Payout Threshold</h3>
+          <p class="card-desc" id="payout-desc">Stack coins to reach the minimum instant payout threshold.</p>
+          <div class="redeem-progress-container">
+            <div class="progress-bar-track">
+              <div class="progress-fill" id="redeem-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-labels">
+              <span id="redeem-status">0 / 1,000 Coins (0%)</span>
+              <span class="threshold-label">Goal: ₹10.00</span>
+            </div>
+          </div>
+          <div class="payout-methods">
+            <span>Supported Gateways: <strong>UPI (GPay / PhonePe / Paytm)</strong> · <strong>Amazon Pay</strong></span>
+          </div>
+        </div>
       </div>
-      <h3 class="sub-title">Transaction History</h3>
-      <div id="wallet-logs" class="wallet-logs"></div>
+
+      <div class="wallet-logs-section">
+        <div class="section-header-row">
+          <h3 class="sub-title">Session & Reward Transaction History</h3>
+          <button class="btn-ghost btn-sm" id="clear-logs-btn">Clear History</button>
+        </div>
+        <div id="wallet-logs" class="wallet-logs"></div>
+      </div>
     </section>
 
     <!-- Profile View -->
@@ -279,7 +368,12 @@
   </nav>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<!-- Interactive Toast Notification -->
+<div id="app-toast" class="app-toast">
+  <span class="toast-icon">✓</span>
+  <span class="toast-message" id="toast-message">Success!</span>
+</div>
+
 <script src="js/app.js"></script>
 </body>
 </html>
