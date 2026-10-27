@@ -384,15 +384,7 @@
           last_active: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
-        // Update real-time Esports Leaderboard
-        const lbRef = db.collection("leaderboard").doc(state.user.uid);
-        await lbRef.set({
-          uid: state.user.uid,
-          username: state.user.username || "Player",
-          avatar: state.user.avatar || "👤",
-          coins: state.user.coins,
-          updated_at: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+
 
         // Log transaction to Firestore subcollection
         try {
@@ -407,7 +399,10 @@
         } catch(errTx){}
 
       } catch(err){
-        console.warn("Firestore sync error:", err.message);
+        console.warn("Firestore sync error:", err.code, err.message);
+        if(err.code === "permission-denied"){
+          console.error("Firestore Security Rules are locked. Please set rules to allow read/write in Firebase Console.");
+        }
       }
     }
   }
@@ -2020,10 +2015,7 @@
               username: state.user.username,
               avatar: state.user.avatar
             }, { merge: true });
-            await db.collection("leaderboard").doc(state.user.uid).set({
-              username: state.user.username,
-              avatar: state.user.avatar
-            }, { merge: true });
+            
           } catch(e){
             console.warn("Firestore profile save error:", e);
           }
