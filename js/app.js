@@ -74,7 +74,8 @@
     firestoreUnsubLeaderboard: null,
     firestoreUnsubUser: null,
     isExpanded: false,
-    isAdmin: false
+    isAdmin: false,
+    adminUsersCache: []
   };
 
   const $ = s => document.querySelector(s);
@@ -328,6 +329,15 @@
         const docSnap = await docRef.get();
         if(docSnap.exists){
           const d = docSnap.data();
+          if(d.is_banned || d.status === "banned"){
+            showAuthGate("This device has been suspended by an administrator.");
+            return;
+          }
+          if(d.is_banned || d.status === "banned"){
+            await handleSignOut();
+            showAuthGate("This account has been suspended by an administrator.");
+            return;
+          }
           profileData.username = d.username || profileData.username;
           profileData.avatar = d.avatar || profileData.avatar;
           // Keep the highest between Firestore and local session to avoid coin loss
@@ -428,7 +438,7 @@
       guestProfile = {
         uid: deviceCode,
         username: "Guest_" + randId,
-        avatar: "??",
+        avatar: "👤",
         coins: 100,
         is_guest: true,
         created_at: Date.now()
@@ -455,6 +465,15 @@
         const docSnap = await docRef.get();
         if(docSnap.exists){
           const d = docSnap.data();
+          if(d.is_banned || d.status === "banned"){
+            showAuthGate("This device has been suspended by an administrator.");
+            return;
+          }
+          if(d.is_banned || d.status === "banned"){
+            await handleSignOut();
+            showAuthGate("This account has been suspended by an administrator.");
+            return;
+          }
           guestProfile.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, guestProfile.coins);
           guestProfile.username = d.username || guestProfile.username;
           guestProfile.avatar = d.avatar || guestProfile.avatar;
@@ -1227,7 +1246,7 @@
         const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
         if(coins < 1000){
           const needed = 1000 - coins;
-          showToast(`Minimum withdrawal is 1,000 Coins (?1.00). You need ${needed} more coins.`, "?");
+          showToast(`Minimum withdrawal is 1,000 Coins (₹1.00). You need ${needed} more coins.`, "ℹ");
           return;
         }
         const inrValue = (coins / COINS_PER_INR).toFixed(2);
@@ -1382,7 +1401,7 @@
     if(modal) modal.style.display = "none";
   }
 
-  // 100% Real Live Firestore Fetching - No Hardcoded Data
+  // 100% Real Live Firestore Fetching with Caching & 0ms Search
   async function loadAdminDashboard(){
     if(!state.isAdmin){
       showToast("Access denied: Admin passkey required.", "\u26a0");
@@ -1397,18 +1416,20 @@
     const usersTbody = document.getElementById("admin-users-tbody");
     const withdrawalsTbody = document.getElementById("admin-withdrawals-tbody");
     const withdrawalsCountEl = document.getElementById("admin-withdrawals-count");
+    const blockedTbody = document.getElementById("admin-blocked-tbody");
+    const blockedCountEl = document.getElementById("admin-blocked-count");
 
     if(!db){
-      if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="7" class="table-empty">Firestore offline. Live database connection unavailable.</td></tr>`;
+      if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="8" class="table-empty">Firestore offline. Live database connection unavailable.</td></tr>`;
       if(withdrawalsTbody) withdrawalsTbody.innerHTML = `<tr><td colspan="7" class="table-empty">Firestore offline.</td></tr>`;
       return;
     }
 
-    if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="7" class="table-loading">Querying live Firestore collection...</td></tr>`;
+    if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="8" class="table-loading">Querying live Firestore collection...</td></tr>`;
     if(withdrawalsTbody) withdrawalsTbody.innerHTML = `<tr><td colspan="7" class="table-loading">Querying live withdrawal requests...</td></tr>`;
 
     try {
-      // 1. Fetch Real Users from Firestore
+      // 1. Fetch Real Users from Firestore & cache in memory for 0ms filtering
       const usersSnap = await db.collection("users").get();
       let totalCoins = 0;
       const allUsers = [];
@@ -1422,6 +1443,7 @@
 
       // Sort by coins desc
       allUsers.sort((a,b) => (b.coins || 0) - (a.coins || 0));
+      state.adminUsersCache = allUsers;
 
       if(totalUsersEl) totalUsersEl.textContent = allUsers.length.toLocaleString();
       if(totalCoinsEl) totalCoinsEl.textContent = totalCoins.toLocaleString() + " Coins";
@@ -1429,12 +1451,16 @@
 
       renderAdminUsersTable(allUsers);
 
-      // User search filter
+      // Instant 0ms Search Filter on cached records
       const searchInput = document.getElementById("admin-user-search");
       if(searchInput){
         searchInput.oninput = () => {
           const q = searchInput.value.toLowerCase().trim();
-          const filtered = allUsers.filter(u => 
+          if(!q){
+            renderAdminUsersTable(state.adminUsersCache);
+            return;
+          }
+          const filtered = state.adminUsersCache.filter(u => 
             (u.username && u.username.toLowerCase().includes(q)) ||
             (u.email && u.email.toLowerCase().includes(q)) ||
             (u.id && u.id.toLowerCase().includes(q))
@@ -1443,7 +1469,26 @@
         };
       }
 
-      // 2. Fetch Real Withdrawals from Firestore
+      // 2. Fetch Real Moderation / Suspended Accounts
+      let blockedTargets = [];
+      try {
+        const modDoc = await db.collection("settings").doc("moderation").get();
+        if(modDoc.exists && Array.isArray(modDoc.data().banned_targets)){
+          blockedTargets = modDoc.data().banned_targets;
+        }
+      } catch(e){}
+
+      // Also gather any users with is_banned: true
+      allUsers.forEach(u => {
+        if(u.is_banned && !blockedTargets.some(b => (typeof b === "string" ? b === u.id : b.target === u.id || b.target === u.email))){
+          blockedTargets.push({ target: u.email || u.id, reason: u.banned_reason || "Direct suspension", date: "Active" });
+        }
+      });
+
+      if(blockedCountEl) blockedCountEl.textContent = `${blockedTargets.length} Suspended`;
+      renderAdminBlockedTable(blockedTargets);
+
+      // 3. Fetch Real Withdrawals from Firestore
       let withdrawalsSnap;
       try {
         withdrawalsSnap = await db.collection("withdrawals").orderBy("created_at", "desc").limit(50).get();
@@ -1474,7 +1519,7 @@
     const tbody = document.getElementById("admin-users-tbody");
     if(!tbody) return;
     if(list.length === 0){
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No registered players in Firestore.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No matching players in database.</td></tr>`;
       return;
     }
 
@@ -1490,14 +1535,19 @@
       }
       const type = u.is_guest || (u.id && u.id.startsWith("guest_")) ? "Guest" : (u.email ? "Email" : "Google");
       const typeBadge = type === "Guest" ? '<span class="badge-type guest">Guest</span>' : '<span class="badge-type member">Verified</span>';
+      const statusBadge = u.is_banned ? '<span class="badge-status banned">Banned</span>' : '<span class="badge-status active">Active</span>';
+
+      const banBtn = u.is_banned 
+        ? `<button class="btn-table-action unban" onclick="window.adminToggleBanUser('${escapeHtml(u.id)}', true)">Unblock</button>`
+        : `<button class="btn-table-action ban" onclick="window.adminToggleBanUser('${escapeHtml(u.id)}', false)">Block</button>`;
 
       tr.innerHTML = `
         <td>
           <div class="admin-user-cell">
-            <span class="admin-user-av">${escapeHtml(u.avatar || "??")}</span>
+            <span class="admin-user-av">${escapeHtml(u.avatar || "👤")}</span>
             <div>
               <div class="admin-user-name">${escapeHtml(u.username || "Player")}</div>
-              <div class="admin-user-sub">${escapeHtml(u.email || "Device profile")}</div>
+              <div class="admin-user-sub">${escapeHtml(u.email || "Device Profile")}</div>
             </div>
           </div>
         </td>
@@ -1505,9 +1555,41 @@
         <td>${typeBadge}</td>
         <td><strong style="color:var(--text-white);">${(u.coins || 0).toLocaleString()}</strong></td>
         <td><span style="color:#34D399; font-weight:600;">\u20b9${inr}</span></td>
+        <td>${statusBadge}</td>
         <td><span class="admin-date">${dateStr}</span></td>
         <td>
-          <button class="btn-table-action" onclick="window.adminQuickSelectUser('${escapeHtml(u.id)}')">Manage</button>
+          <div class="user-action-btns">
+            <button class="btn-table-action" onclick="window.adminQuickSelectUser('${escapeHtml(u.id)}')">+ Coins</button>
+            <button class="btn-table-action reset" onclick="window.adminResetCoins('${escapeHtml(u.id)}')">0</button>
+            ${banBtn}
+          </div>
+        </td>
+      `;
+      frag.appendChild(tr);
+    });
+    tbody.innerHTML = "";
+    tbody.appendChild(frag);
+  }
+
+  function renderAdminBlockedTable(list){
+    const tbody = document.getElementById("admin-blocked-tbody");
+    if(!tbody) return;
+    if(list.length === 0){
+      tbody.innerHTML = `<tr><td colspan="3" class="table-empty">No accounts or emails currently suspended.</td></tr>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(b => {
+      const tr = document.createElement("tr");
+      const targetStr = typeof b === "string" ? b : (b.target || "N/A");
+      const reasonStr = typeof b === "string" ? "Suspended" : (b.reason || "Administrative block");
+
+      tr.innerHTML = `
+        <td><code class="admin-uid" style="color:#EF4444;">${escapeHtml(targetStr)}</code></td>
+        <td><span style="color:var(--text-muted); font-size:0.82rem;">${escapeHtml(reasonStr)}</span></td>
+        <td>
+          <button class="btn-table-action unban" onclick="window.adminUnblockTarget('${escapeHtml(targetStr)}')">Unblock</button>
         </td>
       `;
       frag.appendChild(tr);
@@ -1570,6 +1652,85 @@
     }
   };
 
+  window.adminResetCoins = async function(uid){
+    if(!db || !state.isAdmin) return;
+    if(!confirm(`Are you sure you want to reset coins to 0 for player ${uid}?`)) return;
+    try {
+      await db.collection("users").doc(uid).set({ coins: 0 }, { merge: true });
+      try { await db.collection("leaderboard").doc(uid).set({ coins: 0 }, { merge: true }); } catch(e){}
+      showToast(`Coins reset to 0 for ${uid}.`, "\u2713");
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Reset failed: " + err.message, "\u26a0");
+    }
+  };
+
+  window.adminToggleBanUser = async function(uid, isCurrentlyBanned){
+    if(!db || !state.isAdmin) return;
+    try {
+      const newStatus = !isCurrentlyBanned;
+      await db.collection("users").doc(uid).set({
+        is_banned: newStatus,
+        banned_reason: newStatus ? "Suspended by administrator" : null,
+        banned_at: newStatus ? firebase.firestore.FieldValue.serverTimestamp() : null
+      }, { merge: true });
+
+      if(newStatus){
+        try { await db.collection("leaderboard").doc(uid).delete(); } catch(e){}
+      } else {
+        const uDoc = await db.collection("users").doc(uid).get();
+        if(uDoc.exists){
+          const ud = uDoc.data();
+          await db.collection("leaderboard").doc(uid).set({
+            uid: uid,
+            username: ud.username || "Player",
+            coins: ud.coins || 0,
+            avatar: ud.avatar || "👤",
+            hours: Number(Math.max(0.5, (ud.coins || 0) / 120).toFixed(1)),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+      }
+
+      showToast(newStatus ? `Player ${uid} suspended.` : `Player ${uid} unblocked.`, "\u2713");
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Action failed: " + err.message, "\u26a0");
+    }
+  };
+
+  window.adminUnblockTarget = async function(target){
+    if(!db || !state.isAdmin) return;
+    try {
+      const modRef = db.collection("settings").doc("moderation");
+      const modDoc = await modRef.get();
+      if(modDoc.exists && Array.isArray(modDoc.data().banned_targets)){
+        const list = modDoc.data().banned_targets.filter(item => 
+          (typeof item === "string" ? item !== target : item.target !== target)
+        );
+        await modRef.set({ banned_targets: list }, { merge: true });
+      }
+
+      // Also unban in users doc
+      try {
+        const uDoc = await db.collection("users").doc(target).get();
+        if(uDoc.exists){
+          await db.collection("users").doc(target).set({ is_banned: false }, { merge: true });
+        } else {
+          const q = await db.collection("users").where("email", "==", target).get();
+          q.forEach(async d => {
+            await db.collection("users").doc(d.id).set({ is_banned: false }, { merge: true });
+          });
+        }
+      } catch(e){}
+
+      showToast(`Target ${target} unblocked.`, "\u2713");
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Unblock failed: " + err.message, "\u26a0");
+    }
+  };
+
   window.adminUpdateWithdrawal = async function(docId, newStatus){
     if(!db || !state.isAdmin) return;
     try {
@@ -1583,6 +1744,58 @@
       showToast("Error updating withdrawal: " + err.message, "\u26a0");
     }
   };
+
+  async function handleAdminBlockForm(e){
+    e.preventDefault();
+    if(!db || !state.isAdmin) return;
+    const target = document.getElementById("admin-block-target").value.trim();
+    const reason = document.getElementById("admin-block-reason").value.trim() || "Administrative suspension";
+    if(!target){
+      showToast("Please enter an email or UID to block.", "\u26a0");
+      return;
+    }
+
+    try {
+      let foundUid = null;
+      const directDoc = await db.collection("users").doc(target).get();
+      if(directDoc.exists){
+        foundUid = target;
+      } else {
+        const qSnap = await db.collection("users").where("email", "==", target).get();
+        if(!qSnap.empty){
+          foundUid = qSnap.docs[0].id;
+        }
+      }
+
+      if(foundUid){
+        await db.collection("users").doc(foundUid).set({
+          is_banned: true,
+          banned_reason: reason,
+          banned_at: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        try { await db.collection("leaderboard").doc(foundUid).delete(); } catch(e){}
+      }
+
+      // Save to moderation doc
+      const modRef = db.collection("settings").doc("moderation");
+      const modDoc = await modRef.get();
+      let list = [];
+      if(modDoc.exists && Array.isArray(modDoc.data().banned_targets)){
+        list = modDoc.data().banned_targets;
+      }
+      if(!list.some(item => (typeof item === "string" ? item === target : item.target === target))){
+        list.push({ target, reason, date: new Date().toISOString() });
+        await modRef.set({ banned_targets: list }, { merge: true });
+      }
+
+      showToast(`Target ${target} has been suspended.`, "\u2713");
+      document.getElementById("admin-block-target").value = "";
+      document.getElementById("admin-block-reason").value = "";
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Block action failed: " + err.message, "\u26a0");
+    }
+  }
 
   async function handleAdminCoinAdjust(e){
     e.preventDefault();
@@ -1627,6 +1840,77 @@
     }
   }
 
+  // Fast Client-Side CSV Export Function
+  function adminExportUsersCSV(){
+    if(!state.adminUsersCache || state.adminUsersCache.length === 0){
+      showToast("No user records loaded to export.", "\u26a0");
+      return;
+    }
+    const headers = ["UID", "Username", "Email", "AccountType", "Coins", "INRValue", "Status", "LastActive"];
+    const rows = state.adminUsersCache.map(u => {
+      const type = u.is_guest || (u.id && u.id.startsWith("guest_")) ? "Guest" : (u.email ? "Email" : "Google");
+      const inr = ((u.coins || 0) / COINS_PER_INR).toFixed(2);
+      const status = u.is_banned ? "Banned" : "Active";
+      let dateStr = "N/A";
+      if(u.last_active && u.last_active.toDate) dateStr = u.last_active.toDate().toISOString();
+      return [
+        `"${u.id}"`,
+        `"${(u.username || "Player").replace(/"/g, '""')}"`,
+        `"${(u.email || "").replace(/"/g, '""')}"`,
+        `"${type}"`,
+        u.coins || 0,
+        inr,
+        status,
+        `"${dateStr}"`
+      ].join(",");
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `nexplay-users-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Users CSV exported successfully!", "\u2713");
+  }
+
+  // Live Announcement Banner Controls
+  async function handleAdminAnnouncement(e){
+    e.preventDefault();
+    if(!db || !state.isAdmin) return;
+    const input = document.getElementById("admin-announcement-input");
+    const msg = input ? input.value.trim() : "";
+    try {
+      await db.collection("settings").doc("announcement").set({
+        message: msg,
+        is_active: Boolean(msg),
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      showToast(msg ? "Live announcement broadcasted!" : "Announcement cleared.", "\u2713");
+    } catch(err){
+      showToast("Broadcast failed: " + err.message, "\u26a0");
+    }
+  }
+
+  function initAnnouncementListener(){
+    if(!db) return;
+    try {
+      db.collection("settings").doc("announcement").onSnapshot(doc => {
+        const banner = document.getElementById("global-announcement-banner");
+        const textEl = document.getElementById("announcement-text");
+        if(!banner || !textEl) return;
+        if(doc && doc.exists && doc.data().is_active && doc.data().message){
+          textEl.textContent = doc.data().message;
+          banner.style.display = "flex";
+        } else {
+          banner.style.display = "none";
+        }
+      }, () => {});
+    } catch(e){}
+  }
+
   function setupAdminEventListeners(){
     // Admin access modal toggle
     const accessBtn = document.getElementById("admin-access-btn");
@@ -1652,7 +1936,7 @@
             state.user = {
               uid: "admin_master",
               username: "Administrator",
-              avatar: "???",
+              avatar: "👤",
               coins: 10000,
               is_admin: true
             };
@@ -1671,7 +1955,7 @@
       });
     }
 
-    // Refresh and exit admin buttons
+    // Refresh, exit & export buttons
     const refreshBtn = document.getElementById("admin-refresh-btn");
     if(refreshBtn) refreshBtn.addEventListener("click", () => {
       loadAdminDashboard();
@@ -1687,10 +1971,44 @@
       showToast("Exited admin mode.", "\u2139");
     });
 
+    const exportBtn = document.getElementById("admin-export-csv-btn");
+    if(exportBtn) exportBtn.addEventListener("click", adminExportUsersCSV);
+
+    // Moderation block form
+    const blockForm = document.getElementById("admin-block-form");
+    if(blockForm) blockForm.addEventListener("submit", handleAdminBlockForm);
+
     // Coin adjuster form
     const adjustForm = document.getElementById("admin-coin-adjust-form");
     if(adjustForm) adjustForm.addEventListener("submit", handleAdminCoinAdjust);
+
+    // Announcement form & dismiss
+    const annForm = document.getElementById("admin-announcement-form");
+    if(annForm) annForm.addEventListener("submit", handleAdminAnnouncement);
+
+    const clearAnnBtn = document.getElementById("admin-clear-announcement-btn");
+    if(clearAnnBtn) clearAnnBtn.addEventListener("click", async () => {
+      if(!db || !state.isAdmin) return;
+      try {
+        await db.collection("settings").doc("announcement").set({ is_active: false, message: "" });
+        const input = document.getElementById("admin-announcement-input");
+        if(input) input.value = "";
+        showToast("Announcement cleared.", "\u2713");
+      } catch(e){}
+    });
+
+    const annDismiss = document.getElementById("announcement-dismiss-btn");
+    if(annDismiss){
+      annDismiss.addEventListener("click", () => {
+        const b = document.getElementById("global-announcement-banner");
+        if(b) b.style.display = "none";
+      });
+    }
+
+    // Listen for live announcements for all users
+    initAnnouncementListener();
   }
+
 
   // -- Capacitor Android App Detection (Web-Only Filter) --
   function isCapacitorApp(){

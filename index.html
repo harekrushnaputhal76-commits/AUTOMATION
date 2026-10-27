@@ -97,7 +97,7 @@
 <div id="admin-auth-modal" class="modal-overlay" style="display:none;">
   <div class="admin-modal-card">
     <div class="admin-modal-header">
-      <div class="admin-shield-icon">???</div>
+      <div class="admin-shield-icon">🛡️</div>
       <h3 class="admin-modal-title">Admin Verification</h3>
       <p class="admin-modal-desc">Restricted area. Enter administrator passkey to access live Firestore database metrics.</p>
     </div>
@@ -178,6 +178,14 @@
 
     <!-- Discover View -->
     <section id="view-discover" class="view active">
+      <!-- Global Live Announcement Banner (Admin Broadcast) -->
+      <div id="global-announcement-banner" class="global-announcement-banner" style="display:none;">
+        <div class="announcement-content">
+          <span class="announcement-badge">NOTICE</span>
+          <span id="announcement-text" class="announcement-text"></span>
+        </div>
+        <button id="announcement-dismiss-btn" class="announcement-dismiss" title="Dismiss">&times;</button>
+      </div>
       <!-- Hero Spotlight -->
       <div id="hero-carousel" class="hero-carousel">
         <div class="hero-slide active">
@@ -443,18 +451,19 @@
             <button class="btn-primary" id="save-profile">Save Changes</button>
             <button class="btn-secondary" id="profile-logout-btn">Sign Out</button>
           </div>
-        </div>
       </div>
+    </section>
 
-    <!-- Admin Dashboard View (100% Real Firestore Live Data) -->
+    <!-- Admin Dashboard View (100% Real Firestore Live Data & Moderation) -->
     <section id="view-admin" class="view">
       <div class="section-header-row">
         <div>
           <h2 class="section-title">Admin Control Center</h2>
-          <p class="section-subtitle">Real-time Firebase Firestore database metrics and live player administration.</p>
+          <p class="section-subtitle">Real-time Firebase Firestore database management, user moderation, and economy telemetry.</p>
         </div>
         <div class="admin-header-actions">
-          <button id="admin-refresh-btn" class="btn-secondary btn-sm">? Refresh Live Data</button>
+          <button id="admin-export-csv-btn" class="btn-secondary btn-sm">📥 Export Users CSV</button>
+          <button id="admin-refresh-btn" class="btn-secondary btn-sm">🔄 Refresh Live Data</button>
           <button id="admin-exit-btn" class="btn-ghost btn-sm">Exit Admin Mode</button>
         </div>
       </div>
@@ -462,40 +471,40 @@
       <!-- Real Firestore Live Metric Counters -->
       <div class="admin-metrics-grid">
         <div class="admin-stat-card">
-          <span class="admin-stat-icon">??</span>
+          <span class="admin-stat-icon">👥</span>
           <div class="admin-stat-info">
             <span class="admin-stat-label">Total Registered Users</span>
-            <span id="admin-total-users" class="admin-stat-val">?</span>
+            <span id="admin-total-users" class="admin-stat-val">--</span>
           </div>
         </div>
         <div class="admin-stat-card">
-          <span class="admin-stat-icon">??</span>
+          <span class="admin-stat-icon">🪙</span>
           <div class="admin-stat-info">
             <span class="admin-stat-label">Total Coins in Circulation</span>
-            <span id="admin-total-coins" class="admin-stat-val">?</span>
+            <span id="admin-total-coins" class="admin-stat-val">--</span>
           </div>
         </div>
         <div class="admin-stat-card">
-          <span class="admin-stat-icon">??</span>
+          <span class="admin-stat-icon">₹</span>
           <div class="admin-stat-info">
             <span class="admin-stat-label">Total Economy Value (INR)</span>
-            <span id="admin-total-inr" class="admin-stat-val">?</span>
+            <span id="admin-total-inr" class="admin-stat-val">--</span>
           </div>
         </div>
         <div class="admin-stat-card">
-          <span class="admin-stat-icon">??</span>
+          <span class="admin-stat-icon">💳</span>
           <div class="admin-stat-info">
             <span class="admin-stat-label">Pending Withdrawals</span>
-            <span id="admin-pending-withdrawals" class="admin-stat-val">?</span>
+            <span id="admin-pending-withdrawals" class="admin-stat-val">--</span>
           </div>
         </div>
       </div>
 
-      <!-- Live User Database Table (Firestore) -->
+      <!-- Live User Database Table with Search & Instant Actions -->
       <div class="admin-panel-card">
         <div class="admin-panel-header">
           <div>
-            <h3 class="card-title">Live User Database (Firestore)</h3>
+            <h3 class="card-title">Live User Database & Moderation</h3>
             <p class="card-desc">All user accounts, persistent guests, and real-time balances in Firestore collection.</p>
           </div>
           <div class="admin-search-wrap">
@@ -511,12 +520,45 @@
                 <th>Type</th>
                 <th>Coins</th>
                 <th>INR Value</th>
+                <th>Status</th>
                 <th>Last Active</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="admin-users-tbody">
-              <tr><td colspan="7" class="table-loading">Querying live Firestore collection...</td></tr>
+              <tr><td colspan="8" class="table-loading">Querying live Firestore collection...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Direct Account Moderation & Blocklist Tool -->
+      <div class="admin-panel-card" style="margin-top: 24px;">
+        <div class="admin-panel-header">
+          <div>
+            <h3 class="card-title">Account Suspension & Blocklist Tool</h3>
+            <p class="card-desc">Block specific email addresses, UIDs, or phone guest IDs from accessing the portal.</p>
+          </div>
+          <span class="admin-sub-tag" id="admin-blocked-count">0 Suspended</span>
+        </div>
+        <form id="admin-block-form" class="admin-block-form">
+          <div class="block-form-inputs">
+            <input type="text" id="admin-block-target" placeholder="Enter Email Address or UID to block..." required>
+            <input type="text" id="admin-block-reason" placeholder="Reason (e.g. Cheating, Botting, Abuse)" maxlength="60">
+            <button type="submit" class="btn-danger">Block / Suspend</button>
+          </div>
+        </form>
+        <div class="admin-table-wrap" style="margin-top: 14px;">
+          <table class="admin-table" id="admin-blocked-table">
+            <thead>
+              <tr>
+                <th>Suspended Identifier (Email / UID)</th>
+                <th>Reason</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-blocked-tbody">
+              <tr><td colspan="3" class="table-empty">No accounts currently suspended.</td></tr>
             </tbody>
           </table>
         </div>
@@ -551,7 +593,7 @@
         </div>
       </div>
 
-      <!-- Quick Coin Adjuster Tool (Writes directly to Firestore) -->
+      <!-- Quick Coin Adjuster Tool & Broadcast Manager -->
       <div class="admin-grid-two" style="margin-top: 24px;">
         <div class="admin-panel-card">
           <h3 class="card-title">Direct Coin Manager</h3>
@@ -569,30 +611,38 @@
           </form>
         </div>
 
-        <!-- Platform Reward Configuration -->
+        <!-- Global Announcement & Economy Controls -->
         <div class="admin-panel-card">
-          <h3 class="card-title">Platform Economy Settings</h3>
-          <p class="card-desc">Live operating parameters configured in Firestore.</p>
-          <div class="admin-settings-row">
-            <span>Coin Earning Rate:</span>
-            <strong>+5 Coins / 30s (+10 Coins/min)</strong>
-          </div>
-          <div class="admin-settings-row">
-            <span>Guaranteed Conversion Rate:</span>
-            <strong style="color:#34D399;">1,000 Coins = ?1.00 INR</strong>
-          </div>
-          <div class="admin-settings-row">
-            <span>Minimum Withdrawal Threshold:</span>
-            <strong>1,000 Coins (?1.00)</strong>
-          </div>
-          <div class="admin-settings-row">
-            <span>Daily Login Bonus:</span>
-            <strong>+100 Coins / 24 Hours</strong>
+          <h3 class="card-title">Global Broadcast & Economy Controls</h3>
+          <p class="card-desc">Publish real-time announcements to all players and view rates.</p>
+          <form id="admin-announcement-form" class="admin-inline-form">
+            <div class="form-group">
+              <label>Live Banner Announcement</label>
+              <input type="text" id="admin-announcement-input" placeholder="Type banner message (e.g. 2x Coins Weekend Active!)...">
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="submit" class="btn-primary" style="flex:1;">Publish Notice</button>
+              <button type="button" id="admin-clear-announcement-btn" class="btn-secondary">Clear</button>
+            </div>
+          </form>
+          <div style="margin-top:16px;">
+            <div class="admin-settings-row">
+              <span>Coin Earning Rate:</span>
+              <strong>+5 Coins / 30s (+10 Coins/min)</strong>
+            </div>
+            <div class="admin-settings-row">
+              <span>Conversion Standard:</span>
+              <strong style="color:#34D399;">1,000 Coins = ₹1.00 INR</strong>
+            </div>
+            <div class="admin-settings-row">
+              <span>Minimum Payout:</span>
+              <strong>1,000 Coins (₹1.00)</strong>
+            </div>
           </div>
         </div>
       </div>
     </section>
-  </main>
+</main>
 
   <!-- Mobile Bottom Navigation -->
   <nav id="mobile-nav">
