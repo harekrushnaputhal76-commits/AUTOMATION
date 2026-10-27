@@ -131,19 +131,25 @@ def main():
             print(f"  {line}")
 
         run("git add -A", cwd=TEMP_SYNC)
-        code, commit_out, commit_err = run(f'git commit -m "{commit_msg}"', cwd=TEMP_SYNC)
-        if code != 0:
-            print(f"Commit error: {commit_err}")
-            safe_remove_tree(TEMP_SYNC)
-            sys.exit(1)
-        print(f"Commit created: {commit_out.splitlines()[0] if commit_out else 'OK'}")
-
-        code, push_out, push_err = run("git push origin main", cwd=TEMP_SYNC)
-        if code != 0:
-            print(f"Push error: {push_err}")
-            safe_remove_tree(TEMP_SYNC)
-            sys.exit(1)
-        print("Successfully pushed to GitHub: origin/main!")
+        code, staged_status, _ = run("git status --porcelain", cwd=TEMP_SYNC)
+        if not staged_status:
+            print("All repository files are 100% synchronized and match GitHub origin/main. Nothing new to commit.")
+        else:
+            code, commit_out, commit_err = run(f'git commit -m "{commit_msg}"', cwd=TEMP_SYNC)
+            if code != 0 and "nothing to commit" not in (commit_out + commit_err).lower():
+                print(f"Commit error: {commit_err}\nStdout: {commit_out}")
+                safe_remove_tree(TEMP_SYNC)
+                sys.exit(1)
+            elif code == 0:
+                print(f"Commit created: {commit_out.splitlines()[0] if commit_out else 'OK'}")
+                code, push_out, push_err = run("git push origin main", cwd=TEMP_SYNC)
+                if code != 0:
+                    print(f"Push error: {push_err}")
+                    safe_remove_tree(TEMP_SYNC)
+                    sys.exit(1)
+                print("Successfully pushed to GitHub: origin/main!")
+            else:
+                print("All repository files are already up-to-date on GitHub.")
 
     # Cleanup
     safe_remove_tree(TEMP_SYNC)
