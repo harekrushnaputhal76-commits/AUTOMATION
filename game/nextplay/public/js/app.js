@@ -1262,16 +1262,71 @@
         const theater = $("#view-theater");
         if(theater && theater.classList.contains("expanded")){
           theater.classList.remove("expanded");
-          showToast("Standard Theater Fit Active", "🗖");
+          showToast("Standard view enabled", "🗖");
         }
       }
     });
+  }
+
+
+  // -- Capacitor Android App Detection (Web-Only Filter) --
+  function isCapacitorApp(){
+    if(typeof window.Capacitor !== "undefined"){
+      if(window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()){
+        return true;
+      }
+      if(window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== "web"){
+        return true;
+      }
+    }
+    if(window.location.protocol === "capacitor:" || window.location.protocol === "ionic:"){
+      return true;
+    }
+    return false;
+  }
+
+  function initApkDownloadWidgets(){
+    if(isCapacitorApp()){
+      document.body.classList.add("is-native-app");
+      const els = document.querySelectorAll(".apk-download-btn, .sidebar-apk-card, .apk-floating-banner");
+      els.forEach(el => { el.style.display = "none"; });
+      return;
+    }
+
+    // Web Browser context: bind download feedback
+    const downloadBtns = document.querySelectorAll(".apk-download-btn, .sidebar-apk-card, .btn-apk-banner");
+    downloadBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        showToast("Starting APK download...", "\u2193");
+      });
+    });
+
+    // Dismissible floating banner (shown smoothly after 1.5s if not previously dismissed)
+    const banner = document.getElementById("apk-floating-banner");
+    const closeBtn = document.getElementById("apk-banner-close");
+    const dismissed = localStorage.getItem("nx_apk_banner_dismissed");
+
+    if(banner && !dismissed){
+      setTimeout(() => {
+        if(!isCapacitorApp() && banner){
+          banner.style.display = "block";
+        }
+      }, 1500);
+    }
+
+    if(closeBtn && banner){
+      closeBtn.addEventListener("click", () => {
+        banner.style.display = "none";
+        localStorage.setItem("nx_apk_banner_dismissed", "1");
+      });
+    }
   }
 
   // ── Bootstrap Application ──
   document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
     initAuth();
+    initApkDownloadWidgets();
   });
 
 })();

@@ -1908,3 +1908,203 @@ html, body {
     pointer-events: auto !important;
   }
 }
+
+
+/* ??????????????????????????????????????????????????????????
+   ?? DOWNLOAD APK WIDGETS & BANNERS (WEB-ONLY) ??
+   ?????????????????????????????????????????????????????????? */
+
+/* Hidden when inside Capacitor Android wrapper */
+body.is-native-app .apk-download-btn,
+body.is-native-app .sidebar-apk-card,
+body.is-native-app .apk-floating-banner {
+  display: none !important;
+}
+
+/* 1. Header Download Button */
+.apk-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 16px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.12);
+}
+.apk-download-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #10B981;
+  color: #34D399;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
+  transform: translateY(-1px);
+}
+.apk-download-btn svg {
+  flex-shrink: 0;
+}
+
+/* 2. Sidebar APK Card Widget */
+.sidebar-apk-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.sidebar-apk-card:hover {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: #10B981;
+  transform: translateY(-1px);
+}
+.sidebar-apk-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.sidebar-apk-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sidebar-apk-label {
+  font-family: var(--font-head);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.2;
+}
+.sidebar-apk-sub {
+  font-size: 0.7rem;
+  color: #10B981;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.sidebar-apk-arrow {
+  color: #10B981;
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+/* 3. Floating Banner (Bottom-Right / Bottom on Mobile) */
+.apk-floating-banner {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  max-width: 380px;
+  background: rgba(14, 19, 31, 0.96);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: apkSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes apkSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.apk-banner-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.apk-banner-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.apk-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.apk-banner-title {
+  font-family: var(--font-head);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.25;
+}
+.apk-banner-sub {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.apk-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn-apk-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #FFFFFF;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.18s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+.btn-apk-banner:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+.apk-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.apk-close-btn:hover {
+  color: #FFFFFF;
+}
+
+@media (max-width: 640px) {
+  .apk-download-btn .apk-btn-text {
+    display: none;
+  }
+  .apk-download-btn {
+    padding: 0 8px;
+    height: 30px;
+  }
+  .apk-download-btn::after {
+    content: "APK ?";
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .apk-floating-banner {
+    bottom: 74px; /* Above mobile bottom nav */
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+  .apk-banner-sub {
+    display: none;
+  }
+}
