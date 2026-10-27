@@ -666,7 +666,7 @@
     }
   }
 
-  // 2. Guest Mode (Instant 1-Click Access with Persistent Device Storage & Firestore Sync)
+  // 2. Guest Mode (0ms Instant Entry with Background Firestore Sync)
   async function signInAsGuest(){
     const errEl = $("#auth-error");
     if(errEl) {
@@ -701,55 +701,60 @@
       localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
     }
 
-    // Attempt Firebase Anonymous Auth if enabled in console
-    if(auth){
-      try {
-        const cred = await auth.signInAnonymously();
-        if(cred && cred.user){
-          guestProfile.firebase_uid = cred.user.uid;
-        }
-      } catch(err){
-        console.warn("Anonymous auth notice:", err.message);
-      }
-    }
-
-    // Sync with Firestore collection 'users' so Admin can see real guest
-    if(db){
-      try {
-        const docRef = db.collection("users").doc(guestProfile.uid);
-        const docSnap = await docRef.get();
-        if(docSnap.exists){
-          const d = docSnap.data();
-          if(d.is_banned || d.status === "banned"){
-            await handleSignOut();
-            showAuthGate("This device has been suspended by an administrator.");
-            return;
-          }
-          guestProfile.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, guestProfile.coins);
-          guestProfile.username = d.username || guestProfile.username;
-          guestProfile.avatar = d.avatar || guestProfile.avatar;
-          await docRef.set({
-            coins: guestProfile.coins,
-            last_active: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } else {
-          await docRef.set({
-            ...guestProfile,
-            account_type: "guest",
-            created_at: firebase.firestore.FieldValue.serverTimestamp(),
-            last_active: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        }
-      } catch(e){
-        console.warn("Guest firestore sync:", e.message);
-      }
-    }
-
+    // 0ms INSTANT OPTIMISTIC LOGIN: Immediately enter arcade!
     state.user = guestProfile;
     setCachedUser(state.user);
     localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user));
     enterArcade();
-    showToast(`Signed in as ${guestProfile.username} (${guestProfile.coins} Coins)`, "✓");
+    showToast(`Playing as ${guestProfile.username}`, "✓");
+
+    // Background asynchronous sync to Firebase without blocking the user
+    (async () => {
+      if(auth){
+        try {
+          const cred = await auth.signInAnonymously();
+          if(cred && cred.user){
+            guestProfile.firebase_uid = cred.user.uid;
+          }
+        } catch(err){
+          console.warn("Anonymous auth notice:", err.message);
+        }
+      }
+
+      if(db){
+        try {
+          const docRef = db.collection("users").doc(guestProfile.uid);
+          const docSnap = await docRef.get();
+          if(docSnap.exists){
+            const d = docSnap.data();
+            if(d.is_banned || d.status === "banned"){
+              await handleSignOut();
+              showAuthGate("This device has been suspended by an administrator.");
+              return;
+            }
+            if(typeof d.coins === "number"){
+              state.user.coins = d.coins;
+              guestProfile.coins = d.coins;
+              setCachedUser(state.user);
+              updateCoinsDisplay(state.user.coins);
+            }
+            await docRef.set({
+              coins: state.user.coins,
+              last_active: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } else {
+            await docRef.set({
+              ...guestProfile,
+              account_type: "guest",
+              created_at: firebase.firestore.FieldValue.serverTimestamp(),
+              last_active: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+        } catch(e){
+          console.warn("Guest firestore sync notice:", e.message);
+        }
+      }
+    })();
   }
 
   // 3. Email & Password Authentication
@@ -2810,12 +2815,18 @@
   }
 
   // ── Bootstrap Application ──
-  document.addEventListener("DOMContentLoaded", () => {
-    initTheme();
-    setupEventListeners();
-    setupAdminEventListeners();
-    initAuth();
-    initApkDownloadWidgets();
-  });
+  function bootstrap(){
+    try { initTheme(); } catch(e){ console.warn("initTheme notice:", e); }
+    try { setupEventListeners(); } catch(e){ console.error("setupEventListeners error:", e); }
+    try { setupAdminEventListeners(); } catch(e){ console.warn("setupAdminEventListeners notice:", e); }
+    try { initAuth(); } catch(e){ console.error("initAuth error:", e); }
+    try { initApkDownloadWidgets(); } catch(e){ console.warn("initApkDownloadWidgets notice:", e); }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrap);
+  } else {
+    bootstrap();
+  }
 
 })();
