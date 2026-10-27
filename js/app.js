@@ -201,7 +201,7 @@
   }
 
   // ── Firestore Sync & Coin Transactions ──
-  async function syncCoinsToFirestore(delta, reason = "Game Mining", gameTitle = ""){
+  async function syncCoinsToFirestore(delta, reason = "Gameplay Reward", gameTitle = ""){
     if(!state.user) return;
     state.user.coins = Math.max(0, (state.user.coins || 0) + delta);
     setCachedUser(state.user);
@@ -297,7 +297,7 @@
     let profileData = {
       uid: fbUser.uid,
       email: fbUser.email || "",
-      username: fbUser.displayName || (fbUser.isAnonymous ? "Guest_" + fbUser.uid.slice(0, 5) : (fbUser.email ? fbUser.email.split("@")[0] : "CyberGamer")),
+      username: fbUser.displayName || (fbUser.isAnonymous ? "Guest_" + fbUser.uid.slice(0, 5) : (fbUser.email ? fbUser.email.split("@")[0] : "Player")),
       avatar: "⚡",
       coins: cachedCoins,
       is_guest: fbUser.isAnonymous
@@ -487,12 +487,12 @@
     });
 
     const titles = {
-      discover: "Discover 1,000+ Games",
-      analytics: "Live Analytics & Network Telemetry",
-      leaderboard: "Global Esports Rankings",
-      wallet: "Cloud Wallet & Vault",
-      profile: "Profile & Cloud Settings",
-      theater: "Now Playing in Arcade"
+      discover: "Discover",
+      analytics: "Platform Activity",
+      leaderboard: "Global Leaderboard",
+      wallet: "Wallet & Balances",
+      profile: "Profile & Settings",
+      theater: "Now Playing"
     };
     $("#view-title").textContent = titles[name] || "NexPlay Arcade";
     state.currentView = name;
@@ -743,8 +743,7 @@
       $("#theater-session-coins").textContent = `+${state.sessionCoins} ⚡`;
 
       // Reward coins and sync to Firestore
-      await syncCoinsToFirestore(COINS_PER_30S, "Active Gameplay Mining", game.title || "Arcade Session");
-      showToast(`+${COINS_PER_30S} Coins mined! Session total: ${state.sessionCoins} ⚡`, "⚡");
+      await syncCoinsToFirestore(COINS_PER_30S, "Gameplay Reward", game.title || "Game Session");
     }, MINING_INTERVAL_MS);
 
     // Idle Check Loop
@@ -799,7 +798,7 @@
     list.forEach((p, idx) => {
       p.rank = idx + 1;
       p.hours = p.hours || Math.max(0.5, ((p.coins || 100) / 120)).toFixed(1);
-      p.tier = p.coins >= 8000 ? "Cyber Apex" : p.coins >= 4000 ? "Gold" : p.coins >= 1000 ? "Silver" : "Bronze";
+      p.tier = p.coins >= 8000 ? "Grand Master" : p.coins >= 4000 ? "Diamond" : p.coins >= 2000 ? "Gold" : p.coins >= 1000 ? "Silver" : "Bronze";
     });
 
     // Render Top 3 Podium Cards
@@ -808,9 +807,9 @@
       podium.innerHTML = "";
       const top3 = list.slice(0, 3);
       const podiumMeta = [
-        { rank: 1, label: "Cyber Apex Champion", icon: "👑", cls: "rank-1" },
+        { rank: 1, label: "Champion", icon: "👑", cls: "rank-1" },
         { rank: 2, label: "Gold Contender", icon: "🥈", cls: "rank-2" },
-        { rank: 3, label: "Pink Vanguard", icon: "🥉", cls: "rank-3" }
+        { rank: 3, label: "3rd Place", icon: "🥉", cls: "rank-3" }
       ];
 
       top3.forEach((p, idx) => {
@@ -819,7 +818,7 @@
         card.className = `podium-card ${meta.cls}`;
         card.innerHTML = `
           <div class="podium-crown">${meta.icon}</div>
-          <div class="podium-name">${escapeHtml(p.username || "Gamer")}</div>
+          <div class="podium-name">${escapeHtml(p.username || "Player")}</div>
           <div class="podium-coins">${(p.coins || 0).toLocaleString()} ⚡</div>
           <span class="podium-tier tier-${meta.cls}">${meta.label}</span>
           <span style="font-size:0.78rem; color:var(--text-muted); font-family:var(--font-mono);">Est. Pool Share: ~₹${((p.coins||0) / COINS_PER_INR * 0.1).toFixed(2)}</span>
@@ -835,12 +834,12 @@
       const frag = document.createDocumentFragment();
       list.forEach(p => {
         const isCurUser = state.user && (p.uid === state.user.uid || p.id === state.user.uid);
-        const tierCls = p.tier.toLowerCase().includes("apex") ? "tier-cyber" : p.tier.toLowerCase().includes("gold") ? "tier-gold" : p.tier.toLowerCase().includes("pink") ? "tier-pink" : p.tier.toLowerCase().includes("silver") ? "tier-silver" : "tier-bronze";
+        const tierCls = p.tier.toLowerCase().includes("master") ? "tier-master" : p.tier.toLowerCase().includes("diamond") ? "tier-diamond" : p.tier.toLowerCase().includes("gold") ? "tier-gold" : p.tier.toLowerCase().includes("silver") ? "tier-silver" : "tier-bronze";
         const row = document.createElement("div");
         row.className = "lb-row" + (isCurUser ? " lb-highlight" : "");
         row.innerHTML = `
           <span class="lb-rank">#${p.rank}</span>
-          <span class="lb-name">${escapeHtml(p.username || "Gamer")}${isCurUser ? ' <strong style="color:var(--neon-cyan);">(You)</strong>' : ''}</span>
+          <span class="lb-name">${escapeHtml(p.username || "Player")}${isCurUser ? ' <strong style="color:var(--neon-cyan);">(You)</strong>' : ''}</span>
           <span class="lb-coins">${(p.coins || 0).toLocaleString()} ⚡</span>
           <span class="lb-hours">${p.hours || 1}h</span>
           <span class="lb-tier ${tierCls}">${escapeHtml(p.tier)}</span>
@@ -854,15 +853,15 @@
 
   function loadLeaderboardFallbackIfEmpty(){
     const fallbackRoster = [
-      { rank: 1, username: "KryptonGhost", coins: 8450, hours: 38.5, tier: "Cyber Apex", avatar: "⚡" },
-      { rank: 2, username: "NeonValkyrie", coins: 6920, hours: 31.2, tier: "Gold", avatar: "🔥" },
-      { rank: 3, username: "ShadowCipher", coins: 5210, hours: 24.8, tier: "Pink Vanguard", avatar: "🎯" },
-      { rank: 4, username: "HyperGlitch", coins: 3950, hours: 18.2, tier: "Silver", avatar: "👾" },
-      { rank: 5, username: "QuantumByte", coins: 2840, hours: 14.5, tier: "Silver", avatar: "🤖" },
-      { rank: 6, username: "PixelViper", coins: 2100, hours: 11.0, tier: "Silver", avatar: "🕹️" },
-      { rank: 7, username: "ZeroDayHero", coins: 1650, hours: 8.4, tier: "Bronze", avatar: "🦊" },
-      { rank: 8, username: "VortexStriker", coins: 1220, hours: 6.2, tier: "Bronze", avatar: "⚔️" },
-      { rank: 9, username: "CyberSamurai", coins: 980, hours: 4.8, tier: "Bronze", avatar: "🛡️" }
+      { rank: 1, username: "AlexRider", coins: 8450, hours: 38.5, tier: "Grand Master", avatar: "⚡" },
+      { rank: 2, username: "NovaStrike", coins: 6920, hours: 31.2, tier: "Diamond", avatar: "🔥" },
+      { rank: 3, username: "PixelKnight", coins: 5210, hours: 24.8, tier: "Diamond", avatar: "🎯" },
+      { rank: 4, username: "ShadowHunter", coins: 3950, hours: 18.2, tier: "Gold", avatar: "👾" },
+      { rank: 5, username: "Jordan_K", coins: 2840, hours: 14.5, tier: "Gold", avatar: "🤖" },
+      { rank: 6, username: "EmmaGamer", coins: 2100, hours: 11.0, tier: "Gold", avatar: "🕹️" },
+      { rank: 7, username: "RyanFox", coins: 1650, hours: 8.4, tier: "Bronze", avatar: "🦊" },
+      { rank: 8, username: "Lucas_99", coins: 1220, hours: 6.2, tier: "Bronze", avatar: "⚔️" },
+      { rank: 9, username: "Sam_Pro", coins: 980, hours: 4.8, tier: "Bronze", avatar: "🛡️" }
     ];
 
     if(state.user){
@@ -872,7 +871,7 @@
         username: state.user.username + " (You)",
         coins: userCoins,
         hours: Math.max(0.5, (userCoins / 120)).toFixed(1),
-        tier: userCoins >= 8000 ? "Cyber Apex" : userCoins >= 4000 ? "Gold" : userCoins >= 1000 ? "Silver" : "Bronze",
+        tier: userCoins >= 8000 ? "Grand Master" : userCoins >= 4000 ? "Gold" : userCoins >= 1000 ? "Silver" : "Bronze",
         avatar: state.user.avatar || "⚡",
         uid: state.user.uid
       });
@@ -897,7 +896,7 @@
     const progressFill = $("#redeem-progress-fill");
     const redeemStatus = $("#redeem-status");
     if(progressFill) progressFill.style.width = pct + "%";
-    if(redeemStatus) redeemStatus.textContent = `${coins.toLocaleString()} / 1,000 Coins (${pct}% to Payout)`;
+    if(redeemStatus) redeemStatus.textContent = `${coins.toLocaleString()} / 1,000 Coins (${pct}% of goal)`;
 
     // Render Transaction Logs
     const logsContainer = $("#wallet-logs");
@@ -912,7 +911,7 @@
           const row = document.createElement("div");
           row.className = "log-row";
           const coinText = l.type === "withdrawal" ? `-${l.coins_earned || l.coins} ⚡` : `+${l.coins_earned || l.coins} ⚡`;
-          const coinCls = l.type === "withdrawal" ? "color:var(--hyper-pink);" : "color:var(--cyber-green);";
+          const coinCls = l.type === "withdrawal" ? "color:#EF4444;" : "color:#34D399;";
           row.innerHTML = `
             <span class="log-game">${escapeHtml(l.game_title || "Arcade Reward")}</span>
             <span class="log-coins" style="${coinCls}">${coinText}</span>
