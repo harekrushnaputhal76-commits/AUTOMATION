@@ -1930,6 +1930,174 @@ html, body {
   color: var(--hyper-pink);
   font-size: 0.82rem;
   margin-top: 12px;
+  width: 100%;
+}
+
+/* Domain Not Authorized Error Card & Diagnostic Helper */
+.auth-domain-error-card {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 0, 85, 0.08);
+  border: 1px solid rgba(255, 0, 85, 0.4);
+  border-radius: 12px;
+  text-align: left;
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.25s ease-out;
+  box-sizing: border-box;
+}
+.domain-error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.domain-error-icon {
+  font-size: 1.1rem;
+}
+.domain-error-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ff4d79;
+  letter-spacing: 0.02em;
+}
+.domain-error-desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.domain-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.domain-code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--neon-cyan);
+  font-weight: 600;
+  word-break: break-all;
+  flex: 1;
+}
+.domain-copy-btn {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: var(--neon-cyan);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.domain-copy-btn:hover {
+  background: var(--neon-cyan);
+  color: #0b0f19;
+}
+.domain-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.domain-console-btn {
+  flex: 1;
+  min-width: 140px;
+  background: linear-gradient(135deg, #4285F4, #3367D6);
+  color: #ffffff !important;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+}
+.domain-console-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.45);
+}
+.domain-guest-btn {
+  flex: 1;
+  min-width: 140px;
+  background: rgba(0, 255, 157, 0.15);
+  border: 1px solid rgba(0, 255, 157, 0.4);
+  color: #00ff9d;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.domain-guest-btn:hover {
+  background: #00ff9d;
+  color: #0b0f19;
+}
+.domain-quick-steps {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+.domain-quick-steps strong {
+  color: var(--text-secondary);
+}
+.domain-quick-steps ol {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+.domain-quick-steps li {
+  margin-bottom: 3px;
+}
+.domain-inline {
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: var(--neon-cyan);
+}
+
+/* Light Theme Overrides */
+[data-theme="white"] .auth-domain-error-card {
+  background: #FFF0F5;
+  border-color: #FFA5BA;
+}
+[data-theme="white"] .domain-error-title {
+  color: #D61A46;
+}
+[data-theme="white"] .domain-pill-row {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+}
+[data-theme="white"] .domain-code {
+  color: #0284C7;
+}
+[data-theme="white"] .domain-guest-btn {
+  background: #ECFDF5;
+  border-color: #10B981;
+  color: #047857;
+}
+[data-theme="white"] .domain-guest-btn:hover {
+  background: #10B981;
+  color: #FFFFFF;
+}
+[data-theme="white"] .domain-inline {
+  background: #F1F5F9;
+  color: #0284C7;
 }
 .search-bar {
   position: relative;

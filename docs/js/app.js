@@ -404,6 +404,399 @@
       }
     }
   }
+
+  // ── Authentication Management (Google, Guest & Email) ──
+  function showAuthGate(msg = ""){
+    const gate = $("#auth-gate");
+    const appEl = $("#app");
+    if(gate) gate.classList.remove("hidden");
+    if(appEl) appEl.style.display = "none";
+    if(msg){
+      const err = $("#auth-error");
+      if(err){
+        err.textContent = msg;
+        err.style.display = "block";
+      }
+    }
+  }
+
+  function hideAuthGate(){
+    const gate = $("#auth-gate");
+    const appEl = $("#app");
+    if(gate) gate.classList.add("hidden");
+    if(appEl) appEl.style.display = "flex";
+  }
+
+  async function initAuth(){
+    if(sessionStorage.getItem("nx_is_admin") === "true"){
+      state.isAdmin = true;
+      updateAdminNavVisibility();
+    }
+
+    // Setup listener on Firebase Auth state
+    if(auth){
+      auth.onAuthStateChanged(async (fbUser) => {
+        if(fbUser){
+          await handleUserAuthenticated(fbUser);
+        } else {
+          // Check cached local user session
+          const cached = getCachedUser();
+          if(cached && (cached.is_guest || cached.uid)){
+            state.user = cached;
+            enterArcade();
+          } else {
+            showAuthGate();
+          }
+        }
+      });
+    } else {
+      // Fallback if Firebase SDK is unavailable (pure offline)
+      const cached = getCachedUser();
+      if(cached){
+        state.user = cached;
+        enterArcade();
+      } else {
+        showAuthGate();
+      }
+    }
+  }
+
+  async function handleUserAuthenticated(fbUser){
+    if(sessionStorage.getItem("nx_is_admin") === "true"){
+      state.isAdmin = true;
+      updateAdminNavVisibility();
+    }
+    const cached = getCachedUser();
+    const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
+
+    let profileData = {
+      uid: fbUser.uid,
+      email: fbUser.email || "",
+      username: fbUser.displayName || (fbUser.isAnonymous ? "Guest_" + fbUser.uid.slice(0, 5) : (fbUser.email ? fbUser.email.split("@")[0] : "Player")),
+      avatar: (cached && cached.avatar) ? cached.avatar : "👤",
+      coins: cachedCoins,
+      is_guest: fbUser.isAnonymous
+    };
+
+    // Fetch existing Firestore profile and sync
+    if(db){
+      try {
+        const docRef = db.collection("users").doc(fbUser.uid);
+        const docSnap = await docRef.get();
+        if(docSnap.exists){
+          const d = docSnap.data();
+          if(d.is_banned || d.status === "banned"){
+            await handleSignOut();
+            showAuthGate("This account has been suspended by an administrator.");
+            return;
+          }
+          profileData.username = d.username || profileData.username;
+          profileData.avatar = d.avatar || profileData.avatar;
+          // Keep the highest between Firestore and local session to avoid coin loss
+          profileData.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, cachedCoins);
+          if(profileData.coins > (d.coins || 0)){
+            await docRef.set({ coins: profileData.coins }, { merge: true });
+          }
+        } else {
+          await docRef.set({
+            ...profileData,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+
+        // Real-time listener for user coin changes
+        if(state.firestoreUnsubUser) state.firestoreUnsubUser();
+        state.firestoreUnsubUser = docRef.onSnapshot(doc => {
+          if(doc && doc.exists){
+            const data = doc.data();
+            if(typeof data.coins === "number" && data.coins !== state.user.coins){
+              state.user.coins = data.coins;
+              setCachedUser(state.user);
+              updateCoinsDisplay(state.user.coins);
+            }
+          }
+        }, err => console.warn("User onSnapshot:", err));
+
+      } catch(e){
+        console.warn("Using offline profile state:", e.message);
+      }
+    }
+
+    state.user = profileData;
+    setCachedUser(state.user);
+    enterArcade();
+  }
+
+  function enterArcade(){
+    hideAuthGate();
+    updateUserDisplay();
+    switchView("discover");
+    loadGames();
+    initLeaderboardRealtime();
+    renderAnalytics();
+  }
+
+  function renderUnauthorizedDomainError(errEl){
+    if(!errEl) errEl = $("#auth-error");
+    if(!errEl) return;
+
+    const currentHost = window.location.hostname || "localhost";
+    const consoleUrl = "https://console.firebase.google.com/project/nextgame-b0ff3/authentication/settings";
+
+    errEl.innerHTML = `
+      <div class="auth-domain-error-card">
+        <div class="domain-error-header">
+          <span class="domain-error-icon">⚠️</span>
+          <span class="domain-error-title">Domain Not Authorized in Firebase</span>
+        </div>
+        <p class="domain-error-desc">
+          Google Sign-In requires your current hosting domain to be added to Authorized Domains in your Firebase Console.
+        </p>
+        <div class="domain-pill-row">
+          <code class="domain-code" id="oauth-domain-text">${escapeHtml(currentHost)}</code>
+          <button type="button" class="domain-copy-btn" id="btn-copy-domain" title="Click to copy domain">
+            📋 Copy Domain
+          </button>
+        </div>
+        <div class="domain-actions-row">
+          <a href="${consoleUrl}" target="_blank" rel="noopener noreferrer" class="domain-console-btn">
+            ⚙️ Open Firebase Console
+          </a>
+          <button type="button" class="domain-guest-btn" id="btn-domain-guest-play">
+            ⚡ Play as Guest (Instant)
+          </button>
+        </div>
+        <div class="domain-quick-steps">
+          <strong>How to authorize in 10 seconds:</strong>
+          <ol>
+            <li>Click <strong>Open Firebase Console</strong> above.</li>
+            <li>Go to <strong>Authentication</strong> &rarr; <strong>Settings</strong> &rarr; <strong>Authorized domains</strong>.</li>
+            <li>Click <strong>Add domain</strong>, paste <code class="domain-inline">${escapeHtml(currentHost)}</code>, and click <strong>Save</strong>.</li>
+          </ol>
+        </div>
+      </div>
+    `;
+    errEl.style.display = "block";
+
+    // Bind Copy Domain button
+    const copyBtn = $("#btn-copy-domain");
+    if(copyBtn){
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(currentHost).then(() => {
+          copyBtn.textContent = "✓ Copied!";
+          setTimeout(() => { copyBtn.textContent = "📋 Copy Domain"; }, 2000);
+          showToast(`Copied domain "${currentHost}" to clipboard!`, "📋");
+        }).catch(() => {
+          showToast(`Domain: ${currentHost}`, "📋");
+        });
+      });
+    }
+
+    // Bind Instant Guest Play fallback button
+    const guestPlayBtn = $("#btn-domain-guest-play");
+    if(guestPlayBtn){
+      guestPlayBtn.addEventListener("click", () => {
+        signInAsGuest();
+      });
+    }
+  }
+
+  // 1. Google Sign-In with Domain Whitelist & WebView Fallback
+  async function signInWithGoogle(){
+    const errEl = $("#auth-error");
+    if(errEl) {
+      errEl.style.display = "none";
+      errEl.innerHTML = "";
+    }
+
+    if(!auth){
+      showToast("Firebase Auth not loaded. Playing as Guest.", "⚠️");
+      signInAsGuest();
+      return;
+    }
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+      await auth.signInWithPopup(provider);
+      showToast("Signed in with Google! Cloud profile connected.", "✓");
+    } catch(err){
+      console.warn("Google sign-in exception:", err.code, err.message);
+
+      // Handle unauthorized domain (Firebase Auth domain whitelist requirement)
+      if(err.code === "auth/unauthorized-domain"){
+        renderUnauthorizedDomainError(errEl);
+        return;
+      }
+
+      // Handle popup blocked by browser or mobile WebView
+      if(err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request"){
+        try {
+          await auth.signInWithRedirect(provider);
+        } catch(redirErr){
+          if(redirErr.code === "auth/unauthorized-domain"){
+            renderUnauthorizedDomainError(errEl);
+          } else if(errEl){
+            errEl.textContent = redirErr.message;
+            errEl.style.display = "block";
+          }
+        }
+        return;
+      }
+
+      // User dismissed Google popup without action
+      if(err.code === "auth/popup-closed-by-user"){
+        showToast("Google sign-in was cancelled.", "ℹ️");
+        return;
+      }
+
+      // General error display
+      if(errEl){
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+      }
+    }
+  }
+
+  // 2. Guest Mode (Instant 1-Click Access with Persistent Device Storage & Firestore Sync)
+  async function signInAsGuest(){
+    const errEl = $("#auth-error");
+    if(errEl) {
+      errEl.style.display = "none";
+      errEl.innerHTML = "";
+    }
+
+    // Retrieve or generate persistent phone guest profile
+    let guestProfile = null;
+    const raw = localStorage.getItem("nx_persistent_guest_profile");
+    if(raw){
+      try { guestProfile = JSON.parse(raw); } catch(e){}
+    }
+
+    if(!guestProfile || !guestProfile.uid){
+      const deviceCode = "guest_" + Math.random().toString(36).substring(2, 9);
+      const randId = Math.floor(1000 + Math.random() * 9000);
+      guestProfile = {
+        uid: deviceCode,
+        username: "Guest_" + randId,
+        avatar: "👤",
+        coins: 100,
+        is_guest: true,
+        created_at: Date.now()
+      };
+      localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
+    }
+
+    // Attempt Firebase Anonymous Auth if enabled in console
+    if(auth){
+      try {
+        const cred = await auth.signInAnonymously();
+        if(cred && cred.user){
+          guestProfile.firebase_uid = cred.user.uid;
+        }
+      } catch(err){
+        console.warn("Anonymous auth notice:", err.message);
+      }
+    }
+
+    // Sync with Firestore collection 'users' so Admin can see real guest
+    if(db){
+      try {
+        const docRef = db.collection("users").doc(guestProfile.uid);
+        const docSnap = await docRef.get();
+        if(docSnap.exists){
+          const d = docSnap.data();
+          if(d.is_banned || d.status === "banned"){
+            await handleSignOut();
+            showAuthGate("This device has been suspended by an administrator.");
+            return;
+          }
+          guestProfile.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, guestProfile.coins);
+          guestProfile.username = d.username || guestProfile.username;
+          guestProfile.avatar = d.avatar || guestProfile.avatar;
+          await docRef.set({
+            coins: guestProfile.coins,
+            last_active: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } else {
+          await docRef.set({
+            ...guestProfile,
+            account_type: "guest",
+            created_at: firebase.firestore.FieldValue.serverTimestamp(),
+            last_active: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+      } catch(e){
+        console.warn("Guest firestore sync:", e.message);
+      }
+    }
+
+    state.user = guestProfile;
+    setCachedUser(state.user);
+    localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user));
+    enterArcade();
+    showToast(`Signed in as ${guestProfile.username} (${guestProfile.coins} Coins)`, "✓");
+  }
+
+  // 3. Email & Password Authentication
+  let emailAuthMode = "login";
+  async function handleEmailAuth(e){
+    e.preventDefault();
+    const errEl = $("#auth-error");
+    if(errEl) {
+      errEl.style.display = "none";
+      errEl.innerHTML = "";
+    }
+    const email = $("#email-address").value.trim();
+    const password = $("#email-password").value;
+    const username = $("#email-username") ? $("#email-username").value.trim() : "";
+
+    if(!auth){
+      showToast("Firebase auth unavailable. Logging in as guest.", "⚠️");
+      signInAsGuest();
+      return;
+    }
+
+    try {
+      if(emailAuthMode === "register"){
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        if(username && cred.user){
+          await cred.user.updateProfile({ displayName: username });
+        }
+        showToast("Account created successfully! Welcome to NexPlay.", "✓");
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+        showToast("Signed in successfully!", "✓");
+      }
+    } catch(err){
+      if(errEl){
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+      }
+    }
+  }
+
+  async function handleSignOut(){
+    if(state.firestoreUnsubLeaderboard){
+      try { state.firestoreUnsubLeaderboard(); } catch(e){}
+      state.firestoreUnsubLeaderboard = null;
+    }
+    if(state.firestoreUnsubUser){
+      try { state.firestoreUnsubUser(); } catch(e){}
+      state.firestoreUnsubUser = null;
+    }
+    if(auth){
+      try { await auth.signOut(); } catch(e){}
+    }
+    localStorage.removeItem("nx_user");
+    state.user = null;
+    showAuthGate("You have been signed out. Sign in to resume progress.");
+    showToast("Signed out successfully.", "↩");
+  }
+
   // ── SPA Routing & View Management ──
   function switchView(name){
     if(state.currentView === "theater" && name !== "theater"){
