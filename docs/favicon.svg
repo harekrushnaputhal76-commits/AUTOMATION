@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#12151E"/>
+      <stop offset="100%" stop-color="#090A0F"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#grad)" stroke="#1F2433" stroke-width="2"/>
+  <!-- D-Pad -->
+  <path d="M22 22h-4v6h-6v4h6v6h4v-6h6v-4h-6z" fill="#CCFF00"/>
+  <!-- Action Buttons -->
+  <circle cx="44" cy="24" r="3" fill="#FF3366"/>
+  <circle cx="50" cy="30" r="3" fill="#FFB800"/>
+  <circle cx="38" cy="30" r="3" fill="#CCFF00"/>
+  <circle cx="44" cy="36" r="3" fill="#00E5FF"/>
+  <!-- Center Play Accent -->
+  <polygon points="30,46 36,50 30,54" fill="#CCFF00"/>
+</svg>
+
