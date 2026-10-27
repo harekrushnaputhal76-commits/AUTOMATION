@@ -1,0 +1,23 @@
+{
+  "name": "nexplay-arcade",
+  "version": "1.0.0",
+  "description": "Cloud HTML5 Gaming Portal & Play-to-Earn Points Ecosystem",
+  "main": "main.py",
+  "scripts": {
+    "start": "python main.py",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/splash-screen": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  },
+  "author": "NexPlay Team",
+  "license": "Private"
+}
+

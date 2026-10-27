@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NexPlay — Online Arcade & Rewards</title>
+  <meta name="description" content="Play free online games, earn rewards, and compete on the global leaderboard.">
+  <meta name="theme-color" content="#090D16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Firebase SDK v10 (CDN Compat - Static & Capacitor) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+</head>
+<body class="no-low-spec">
+
+<!-- Authentication Gate -->
+<div id="auth-gate" class="auth-gate">
+  <div class="auth-gate-card">
+    <div class="auth-brand">
+      <div class="auth-logo-badge">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+        </svg>
+      </div>
+      <h1 class="auth-title">Welcome to NexPlay</h1>
+      <p class="auth-subtitle">Sign in to save your game progress and coin balance across devices.</p>
+    </div>
+
+    <!-- Direct Sign-In Actions -->
+    <div class="auth-actions">
+      <button type="button" id="google-signin-btn" class="btn-google">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <div class="auth-divider">
+        <span>or</span>
+      </div>
+
+      <button type="button" id="guest-signin-btn" class="btn-guest">
+        <span>Play as Guest</span>
+      </button>
+
+      <button type="button" id="email-toggle-btn" class="btn-link">
+        Sign in with email
+      </button>
+    </div>
+
+    <!-- Collapsible Email/Password Form -->
+    <form id="email-auth-form" class="email-auth-form" style="display:none;">
+      <div class="email-auth-tabs">
+        <button type="button" class="tab-btn active" data-tab="login">Sign In</button>
+        <button type="button" class="tab-btn" data-tab="register">Create Account</button>
+      </div>
+      <div class="input-wrap" id="username-input-wrap" style="display:none;">
+        <input type="text" id="email-username" placeholder="Username" maxlength="20">
+      </div>
+      <div class="input-wrap">
+        <input type="email" id="email-address" placeholder="Email address" required autocomplete="email">
+      </div>
+      <div class="input-wrap">
+        <input type="password" id="email-password" placeholder="Password (minimum 6 characters)" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-primary" id="email-submit-btn">Sign In</button>
+    </form>
+
+        <div id="auth-error" class="auth-error-msg" style="display:none;"></div>
+
+    <!-- Admin Access Entry (Restricted to Authorized Admins) -->
+    <div class="auth-admin-wrap">
+      <button type="button" id="admin-access-btn" class="btn-admin-access">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Admin Portal</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Admin Verification Modal (Google OAuth Restricted to Owner) -->
+<div id="admin-auth-modal" class="modal-overlay" style="display:none;">
+  <div class="admin-modal-card">
+    <div class="admin-modal-header">
+      <div class="admin-shield-icon">🛡️</div>
+      <h3 class="admin-modal-title">Admin Google Verification</h3>
+      <p class="admin-modal-desc">Restricted area. Only authorized owner Google account (<strong style="color:var(--neon-cyan);">harekrushnaputhal76@gmail.com</strong>) is permitted to access database controls.</p>
+    </div>
+    <div class="admin-modal-body">
+      <button type="button" id="admin-google-signin-btn" class="btn-google" style="width:100%; justify-content:center; margin-bottom:12px;">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Verify as Owner with Google</span>
+      </button>
+      <div id="admin-auth-error" class="auth-error-msg" style="display:none;"></div>
+      <div class="admin-modal-actions">
+        <button type="button" id="admin-modal-cancel" class="btn-secondary" style="width:100%;">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Application Shell -->
+<div id="app" style="display:none;">
+  <!-- Desktop Sidebar Navigation -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">▶</span>
+      <span class="brand-text">NexPlay</span>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-view="discover"><span class="nav-icon">🎮</span><span class="nav-label">Discover</span></button>
+      <button class="nav-item" data-view="analytics"><span class="nav-icon">📊</span><span class="nav-label">Analytics</span></button>
+      <button class="nav-item" data-view="leaderboard"><span class="nav-icon">🏆</span><span class="nav-label">Leaderboard</span></button>
+      <button class="nav-item" data-view="wallet"><span class="nav-icon">🪙</span><span class="nav-label">Wallet</span></button>
+      <button class="nav-item" data-view="profile"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></button>
+    </div>
+    <div class="sidebar-footer">
+      <!-- APK Download Widget (Web-Only) -->
+      <a id="sidebar-apk-btn" href="https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk" class="sidebar-apk-card" download title="Download Android APK">
+        <div class="sidebar-apk-icon">🤖</div>
+        <div class="sidebar-apk-content">
+          <span class="sidebar-apk-label">Download & Play in Your Phone</span>
+          <span class="sidebar-apk-sub">Android APK • Free</span>
+        </div>
+        <span class="sidebar-apk-arrow">↓</span>
+      </a>
+      <div class="coin-display" id="sidebar-coin-box" title="Wallet Balance">
+        <span class="coin-icon">🪙</span>
+        <span id="sidebar-coins">0</span>
+      </div>
+      <button id="sidebar-logout-btn" class="btn-ghost">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main id="content">
+    <!-- Top HUD Bar -->
+    <header id="hud-bar">
+      <div class="hud-left">
+        <button id="sidebar-toggle" class="btn-icon" title="Toggle Navigation">☰</button>
+        <span id="view-title">Discover</span>
+      </div>
+      <div class="hud-right">
+        <!-- Download APK Header Button (Web-Only) -->
+        <a id="apk-download-btn" href="https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk" class="apk-download-btn" download title="Download & Play in Your Phone">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.996-3.4565a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.411 13.8533 8.125 12 8.125c-1.8533 0-3.5902.286-5.1355.8274L4.8422 5.4494a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.996 3.4565C2.6889 11.1867.3432 14.6589 0 18.784h24c-.3432-4.1251-2.6889-7.5973-6.1185-9.4626"/>
+          </svg>
+          <span class="apk-btn-text">Download & Play in Your Phone</span>
+        </a>
+        <div class="coin-hud" id="hud-coin-badge" title="Wallet Balance">
+          <span class="coin-icon">🪙</span>
+          <span id="hud-coins">0</span>
+        </div>
+
+        <button id="theme-quick-toggle" class="btn-icon theme-quick-toggle" title="Toggle Theme (Default / Dark / White)" aria-label="Toggle Theme">⚡</button>
+        <span id="hud-user" class="hud-user" title="Account Profile"></span>
+      </div>
+    </header>
+
+    <!-- Discover View -->
+    <section id="view-discover" class="view active">
+      <!-- Global Live Announcement Banner (Admin Broadcast) -->
+      <div id="global-announcement-banner" class="global-announcement-banner" style="display:none;">
+        <div class="announcement-content">
+          <span class="announcement-badge">NOTICE</span>
+          <span id="announcement-text" class="announcement-text"></span>
+        </div>
+        <button id="announcement-dismiss-btn" class="announcement-dismiss" title="Dismiss">&times;</button>
+      </div>
+      <!-- Hero Spotlight -->
+      <div id="hero-carousel" class="hero-carousel">
+        <div class="hero-slide active">
+          <div class="hero-content">
+            <span class="hero-badge">FEATURED ARCADE</span>
+            <h1 class="hero-title">Play. Earn. Compete.</h1>
+            <p class="hero-sub">Instant-play games with no downloads. Earn coins while playing and climb the global leaderboard.</p>
+            <button class="btn-primary" onclick="document.getElementById('game-grid').scrollIntoView({behavior:'smooth'})">Explore Games</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="category-bar" id="category-bar">
+        <button class="cat-pill active" data-cat="all">All Games</button>
+        <button class="cat-pill" data-cat="action">Action</button>
+        <button class="cat-pill" data-cat="racing">Racing</button>
+        <button class="cat-pill" data-cat="shooting">Shooting</button>
+        <button class="cat-pill" data-cat="arcade">Arcade</button>
+        <button class="cat-pill" data-cat="puzzle">Puzzle</button>
+        <button class="cat-pill" data-cat="hypercasual">Hypercasual</button>
+        <button class="cat-pill" data-cat="adventure">Adventure</button>
+        <button class="cat-pill" data-cat="sports">Sports</button>
+        <button class="cat-pill" data-cat="girls">Girls</button>
+        <button class="cat-pill" data-cat="multiplayer">Multiplayer</button>
+        <button class="cat-pill" data-cat="strategy">Strategy</button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <input type="text" id="game-search" placeholder="Search games by title or category..." autocomplete="off">
+        <span class="search-count" id="search-count"></span>
+      </div>
+
+      <!-- Responsive Game Grid -->
+      <div id="game-grid" class="game-grid">
+        <div class="skeleton-grid" id="skeleton-loader">
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+        </div>
+      </div>
+      <div class="load-more-wrap">
+        <button id="load-more" class="btn-secondary">Load More Games</button>
+      </div>
+    </section>
+
+    <!-- Game Theater Mode -->
+    <section id="view-theater" class="view theater-view">
+      <div class="theater-hud">
+        <button id="theater-back" class="btn-ghost">← Back to Discover</button>
+        <span id="theater-title" class="theater-game-title">Game Player</span>
+        <div class="theater-controls">
+          <a id="theater-popout" class="btn-icon" target="_blank" rel="noopener" title="Open in New Window">↗</a>
+          <button id="theater-fullscreen" class="btn-icon" title="Fullscreen">⛶</button>
+          <button id="theater-expand" class="btn-icon" title="Expand View">🗖</button>
+          <button id="theater-info" class="btn-icon" title="Game Controls">ℹ</button>
+        </div>
+      </div>
+
+      <div id="idle-overlay" class="idle-overlay" style="display:none;">
+        <div class="idle-content">
+          <span class="idle-icon">⏸</span>
+          <p>Game Paused</p>
+          <button class="btn-primary" id="resume-btn">Click to Resume</button>
+        </div>
+      </div>
+
+      <!-- Responsive Container -->
+      <div class="game-player-wrapper" id="game-container">
+        <div id="game-loader-overlay" class="game-loader-overlay hidden" style="display:none; pointer-events:none;">
+          <div class="loader-spinner"></div>
+          <div class="loader-text">Loading game...</div>
+        </div>
+        <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope; payment; touch" scrolling="no" tabindex="0"></iframe>
+      </div>
+
+      <div id="game-instructions-drawer" class="instructions-drawer" style="display:none;">
+        <h3>Controls & How to Play</h3>
+        <p id="game-instructions-text">Use touch, keyboard, or mouse to play.</p>
+      </div>
+    </section>
+
+    <!-- Analytics View -->
+    <section id="view-analytics" class="view">
+      <h2 class="section-title">Platform Activity & Rewards</h2>
+      <div class="analytics-grid">
+        <div class="stat-card accent">
+          <span class="stat-label">Total Games Played</span>
+          <span id="stat-games-played" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Time Played</span>
+          <span id="stat-minutes-spent" class="stat-value">0m</span>
+        </div>
+        <div class="stat-card gold">
+          <span class="stat-label">Coins Distributed</span>
+          <span id="stat-coins-earned" class="stat-value">0</span>
+        </div>
+        <div class="stat-card pink">
+          <span class="stat-label">Prize Pool (10%)</span>
+          <span id="stat-pool" class="stat-value">₹0.00</span>
+        </div>
+      </div>
+
+      <!-- Activity Graph -->
+      <div class="analytics-chart-container">
+        <div class="chart-header-row">
+          <div>
+            <h3 class="chart-card-title">Daily Activity Overview</h3>
+            <p class="chart-card-desc">Hourly gameplay sessions and player participation</p>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot cyan"></span> Games</span>
+            <span class="legend-item"><span class="legend-dot pink"></span> Players</span>
+          </div>
+        </div>
+        <div class="activity-bars-grid" id="activity-bars-grid"></div>
+      </div>
+
+      <!-- Prize Pool Economics Breakdown -->
+      <div class="pool-breakdown-row">
+        <div class="pool-card">
+          <span class="pool-badge cyan">COMMUNITY REWARD POOL (10%)</span>
+          <div class="pool-amount" id="stat-community-pool">₹0.00</div>
+          <p class="pool-desc">Awarded to top leaderboard players at the conclusion of each season.</p>
+        </div>
+        <div class="pool-card">
+          <span class="pool-badge">PLATFORM OPERATIONS (90%)</span>
+          <div class="pool-amount" id="stat-platform-reserve">₹0.00</div>
+          <p class="pool-desc">Covers game servers, content delivery network bandwidth, and payout processing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leaderboard View (100% Real Firestore Live Rankings & Player Standing Spotlight) -->
+    <section id="view-leaderboard" class="view">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Global Leaderboard & Rankings</h2>
+          <p class="section-subtitle">Real-time Firebase Firestore database rankings. Top players receive seasonal reward pool distributions.</p>
+        </div>
+        <div class="leaderboard-header-actions">
+          <button id="leaderboard-refresh-btn" class="btn-secondary btn-sm">🔄 Refresh Standings</button>
+          <span class="season-pill">Season 1 • Live Firestore Feed</span>
+        </div>
+      </div>
+
+      <!-- Current Player Rank Spotlight Card ("Saw the player which a no") -->
+      <div class="user-rank-spotlight-card" id="user-rank-spotlight">
+        <div class="user-rank-badge-wrap">
+          <span class="user-rank-badge-lbl">Your Live Rank</span>
+          <div class="user-rank-number" id="user-rank-number">#1</div>
+        </div>
+        <div class="user-rank-info">
+          <div class="user-rank-avatar" id="user-rank-avatar">👤</div>
+          <div class="user-rank-meta">
+            <div class="user-rank-name-row">
+              <span class="user-rank-name" id="user-rank-name">Player</span>
+              <span class="user-rank-tag">You</span>
+            </div>
+            <div class="user-rank-sub">
+              <span id="user-rank-tier" class="tier-pill tier-gold">Gold Contender</span>
+              <span class="dot-sep">•</span>
+              <span id="user-rank-coins">0 Coins</span>
+              <span class="dot-sep">•</span>
+              <span id="user-rank-inr" class="inr-share-tag">~₹0.00 Value</span>
+            </div>
+          </div>
+        </div>
+        <div class="user-rank-status-box">
+          <span class="user-rank-status-title" id="user-rank-status-title">Active Competitor</span>
+          <span class="user-rank-status-desc" id="user-rank-status-desc">Play arcade games to increase your rank score!</span>
+        </div>
+      </div>
+
+      <!-- Top 3 Live Podium Cards -->
+      <div class="leaderboard-podium" id="leaderboard-podium">
+        <!-- Rendered dynamically from live Firestore data -->
+      </div>
+
+      <!-- Search & Tier Filter Controls -->
+      <div class="leaderboard-controls-row">
+        <div class="leaderboard-search-wrap">
+          <input type="text" id="leaderboard-search" placeholder="Search rankings by gamertag or UID...">
+        </div>
+        <div class="leaderboard-filter-pills" id="leaderboard-filters">
+          <button type="button" class="lb-filter-btn active" data-filter="all">All Ranks</button>
+          <button type="button" class="lb-filter-btn" data-filter="top10">Top 10</button>
+          <button type="button" class="lb-filter-btn" data-filter="master">Grand Master</button>
+          <button type="button" class="lb-filter-btn" data-filter="diamond">Diamond</button>
+          <button type="button" class="lb-filter-btn" data-filter="gold">Gold</button>
+          <button type="button" class="lb-filter-btn" data-filter="silver">Silver & Bronze</button>
+        </div>
+      </div>
+
+      <!-- Real Live Firestore Leaderboard Table -->
+      <div class="leaderboard-table-wrap">
+        <div class="leaderboard-table-header">
+          <span class="th-rank">Rank</span>
+          <span class="th-player">Player / Gamertag</span>
+          <span class="th-coins">Coins</span>
+          <span class="th-inr">Est. Value (INR)</span>
+          <span class="th-tier">Tier</span>
+          <span class="th-status">Activity</span>
+        </div>
+        <div class="leaderboard-table" id="leaderboard-body">
+          <div class="leaderboard-loading">Querying live Firestore leaderboard...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wallet View (100% Real Firestore Balances, Live Withdrawals & Transaction Ledger) -->
+    <section id="view-wallet" class="view">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Wallet & Balances</h2>
+          <p class="section-subtitle">Earn coins by playing games and redeem them via UPI or Amazon Pay.</p>
+        </div>
+        <div class="rate-badge">Fixed Rate: 1,000 Coins = ₹1.00 INR</div>
+      </div>
+
+      <div class="wallet-banner">
+        <div class="wallet-balance-box">
+          <span class="wallet-balance-label">Total Balance</span>
+          <div class="wallet-coins-row">
+            <span class="wallet-coins" id="wallet-coins">0</span>
+            <span class="wallet-unit">COINS</span>
+          </div>
+          <div class="wallet-inr-tag" id="wallet-inr">= ₹0.00 INR</div>
+        </div>
+        <div class="wallet-actions-box">
+          <button class="btn-primary" id="claim-bonus-btn">Claim Daily Bonus (+100 Coins)</button>
+          <button class="btn-secondary" id="withdraw-btn">Request Payout</button>
+        </div>
+      </div>
+
+      <div class="wallet-grid">
+        <!-- Currency Converter Card -->
+        <div class="wallet-card">
+          <h3 class="card-title">Coin Calculator</h3>
+          <p class="card-desc">Calculate your real cash earnings at 1,000 Coins = ₹1.00 INR.</p>
+          <div class="converter-box">
+            <div class="converter-input-wrap">
+              <input type="number" id="converter-input" placeholder="0" min="0" step="100">
+              <span class="input-suffix">COINS</span>
+            </div>
+            <div class="converter-equals">→</div>
+            <div class="converter-output-wrap">
+              <span class="converter-inr" id="converter-result">₹0.00</span>
+              <span class="output-suffix">INR</span>
+            </div>
+          </div>
+          <div class="converter-chips">
+            <button class="chip-btn" data-coins="1000">+1,000 (₹1)</button>
+            <button class="chip-btn" data-coins="5000">+5,000 (₹5)</button>
+            <button class="chip-btn" data-coins="10000">+10,000 (₹10)</button>
+            <button class="chip-btn" data-coins="max">Max Balance</button>
+          </div>
+        </div>
+
+        <!-- Payout Progress Widget -->
+        <div class="wallet-card">
+          <h3 class="card-title">Withdrawal Progress</h3>
+          <p class="card-desc" id="payout-desc">Accumulate coins to reach the minimum instant payout.</p>
+          <div class="redeem-progress-container">
+            <div class="progress-bar-track">
+              <div class="progress-fill" id="redeem-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-labels">
+              <span id="redeem-status">0 / 1,000 Coins (0%)</span>
+              <span class="threshold-label">Goal: ₹1.00</span>
+            </div>
+          </div>
+          <div class="payout-methods">
+            <span class="methods-title">Payout Options:</span>
+            <span>UPI (GPay, PhonePe, Paytm, BHIM) · Amazon Pay</span>
+          </div>
+        </div>
+
+        <!-- Real Firestore Payout Submissions Panel -->
+        <div class="wallet-card wallet-card-wide" style="margin-top: 10px;">
+          <div class="section-header-row">
+            <div>
+              <h3 class="card-title">Live Payout Requests (Firestore)</h3>
+              <p class="card-desc">Track real payout submissions to UPI or Amazon Pay in real-time.</p>
+            </div>
+            <span id="user-withdrawals-count" class="badge-account-type">0 Submissions</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="wallet-payout-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Coins</th>
+                  <th>INR Amount</th>
+                  <th>Destination</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="user-withdrawals-tbody">
+                <tr><td colspan="5" class="table-empty">No payout requests submitted yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="wallet-logs-section">
+        <div class="section-header-row">
+          <h3 class="sub-title">Recent Activity Ledger</h3>
+          <button class="btn-ghost btn-sm" id="clear-logs-btn">Clear Local History</button>
+        </div>
+        <div id="wallet-logs" class="wallet-logs"></div>
+      </div>
+    </section>
+
+    <!-- In-App Real Cash Withdrawal Modal -->
+    <div id="withdraw-modal" class="modal-overlay" style="display:none;">
+      <div class="withdraw-modal-card">
+        <div class="withdraw-modal-header">
+          <div class="withdraw-modal-icon">💸</div>
+          <div>
+            <h3 class="withdraw-modal-title">Request Real Cash Payout</h3>
+            <p class="withdraw-modal-sub">Direct transfer via UPI or Amazon Pay. Fixed rate: 1,000 Coins = ₹1.00 INR.</p>
+          </div>
+        </div>
+
+        <div class="withdraw-balance-banner">
+          <div class="wb-col">
+            <span class="wb-label">Available Balance</span>
+            <span class="wb-val" id="modal-available-coins">0 Coins</span>
+          </div>
+          <div class="wb-col">
+            <span class="wb-label">Real Cash Value</span>
+            <span class="wb-val inr" id="modal-available-inr">₹0.00 INR</span>
+          </div>
+        </div>
+
+        <form id="withdraw-form" class="withdraw-form">
+          <div class="form-group">
+            <label for="withdraw-amount-input">Coins to Withdraw (Minimum 1,000)</label>
+            <div class="input-with-preview">
+              <input type="number" id="withdraw-amount-input" min="1000" step="500" placeholder="e.g. 1000" required>
+              <span class="input-inr-preview" id="modal-amount-inr-preview">= ₹1.00 INR</span>
+            </div>
+            <div class="withdraw-chip-row">
+              <button type="button" class="w-chip" data-amount="1000">1,000 (₹1)</button>
+              <button type="button" class="w-chip" data-amount="2000">2,000 (₹2)</button>
+              <button type="button" class="w-chip" data-amount="5000">5,000 (₹5)</button>
+              <button type="button" class="w-chip" data-amount="all">All Coins</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Payout Destination Method</label>
+            <div class="payout-type-selector">
+              <label class="payout-type-option active" id="opt-upi">
+                <input type="radio" name="payout-method" value="upi" checked>
+                <span class="payout-type-card">
+                  <strong>UPI ID</strong>
+                  <small>GPay, PhonePe, Paytm, BHIM</small>
+                </span>
+              </label>
+              <label class="payout-type-option" id="opt-amazon">
+                <input type="radio" name="payout-method" value="amazon">
+                <span class="payout-type-card">
+                  <strong>Amazon Pay</strong>
+                  <small>Wallet Phone Number</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="withdraw-destination-input" id="withdraw-dest-label">Enter UPI ID (e.g. name@okhdfcbank / number@paytm)</label>
+            <input type="text" id="withdraw-destination-input" placeholder="e.g. yourname@upi" required>
+          </div>
+
+          <div id="withdraw-modal-error" class="auth-error-msg" style="display:none;"></div>
+
+          <div class="withdraw-modal-actions">
+            <button type="button" id="withdraw-modal-cancel" class="btn-secondary">Cancel</button>
+            <button type="submit" id="withdraw-modal-submit" class="btn-primary">Submit Payout Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Profile & Settings View (100% Real Firestore Data, Photo Avatar Studio & Multi-Theme Switcher) -->
+    <section id="view-profile" class="view">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Player Profile & Settings</h2>
+          <p class="section-subtitle">Live Firestore profile management, photo customization, theme studio, and preferences.</p>
+        </div>
+      </div>
+
+      <div class="profile-layout-grid">
+        <!-- Left Column: Hero Identity Card & Photo/Avatar Studio -->
+        <div class="profile-column">
+          <!-- Real-Time Hero Identity Card -->
+          <div class="profile-card player-hero-card">
+            <div class="player-avatar-large-wrap">
+              <div class="player-avatar-large" id="avatar-display">👤</div>
+              <div class="avatar-upload-overlay">
+                <button type="button" class="btn-avatar-upload-trigger" id="btn-trigger-upload" title="Upload custom photo">
+                  📷 Change Photo
+                </button>
+                <input type="file" id="profile-photo-input" accept="image/png, image/jpeg, image/webp" style="display:none;">
+              </div>
+            </div>
+
+            <div class="player-hero-meta">
+              <h3 class="player-hero-name" id="profile-hero-name">Player</h3>
+              <div class="player-account-badges">
+                <span class="badge-account-type" id="profile-badge-type">Verified Cloud</span>
+                <span class="badge-uid" id="profile-badge-uid" title="Click to copy UID">UID: <code id="profile-uid-text">--</code></span>
+              </div>
+            </div>
+
+            <!-- Real Live Firestore Stats -->
+            <div class="profile-stats-row">
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">🪙</span>
+                <span class="profile-stat-num" id="profile-stat-coins">0</span>
+                <span class="profile-stat-lbl">Wallet Coins</span>
+              </div>
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">🎮</span>
+                <span class="profile-stat-num" id="profile-stat-games">0</span>
+                <span class="profile-stat-lbl">Games Played</span>
+              </div>
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">⏱️</span>
+                <span class="profile-stat-num" id="profile-stat-time">0m</span>
+                <span class="profile-stat-lbl">Time In Arcade</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Photo & Avatar Studio Panel -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">Avatar & Photo Studio</h4>
+            <p class="card-desc">Choose a custom photo from your device or select an arcade emoji avatar.</p>
+
+            <!-- New Uploaded Photo Preview (Shown when an image is selected) -->
+            <div id="photo-preview-wrap" class="photo-preview-box" style="display:none;">
+              <div class="preview-header">
+                <span class="preview-title">New Photo Preview</span>
+                <button type="button" id="photo-preview-cancel" class="btn-ghost btn-xs">✕ Cancel</button>
+              </div>
+              <div class="preview-content">
+                <img id="photo-preview-img" class="photo-preview-thumb" alt="Preview">
+                <div class="preview-info">
+                  <span class="preview-badge">Ready to Sync</span>
+                  <p class="preview-desc">Optimized & ready to save to your Firestore profile.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arcade Emoji Avatars -->
+            <div class="avatar-gallery-wrap">
+              <label class="field-label" style="display:block; margin: 12px 0 8px; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Arcade Icon Collection</label>
+              <div class="avatar-options" id="avatar-options"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Account Details, Theme Switcher & Settings -->
+        <div class="profile-column">
+          <!-- Edit Account Identity Card -->
+          <div class="profile-card">
+            <h4 class="card-title">Edit Account Identity</h4>
+            <p class="card-desc">Your player name and avatar sync directly with Firestore and global rankings.</p>
+            
+            <div class="profile-fields">
+              <div class="form-group">
+                <label for="profile-username">Display Name / Gamertag</label>
+                <input type="text" id="profile-username" maxlength="24" placeholder="Enter your player name">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-email">Account Identifier</label>
+                <input type="text" id="profile-email" readonly style="opacity:0.75; cursor:not-allowed;">
+              </div>
+
+              <div class="profile-actions-row">
+                <button class="btn-primary" id="save-profile">Save Profile Changes</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual Theme Mode Switcher -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">Portal Theme Mode</h4>
+            <p class="card-desc">Select your preferred portal appearance. Transitions instantly across all views.</p>
+
+            <div class="theme-picker-grid">
+              <button type="button" class="theme-picker-opt active" data-theme="default">
+                <div class="theme-preview-swatch swatch-default">
+                  <span class="swatch-glow cyan"></span>
+                  <span class="swatch-glow pink"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>Default</strong>
+                  <span>Cyber Neon</span>
+                </div>
+              </button>
+
+              <button type="button" class="theme-picker-opt" data-theme="dark">
+                <div class="theme-preview-swatch swatch-dark">
+                  <span class="swatch-glow slate"></span>
+                  <span class="swatch-glow blue"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>Dark</strong>
+                  <span>Midnight AMOLED</span>
+                </div>
+              </button>
+
+              <button type="button" class="theme-picker-opt" data-theme="white">
+                <div class="theme-preview-swatch swatch-white">
+                  <span class="swatch-glow light-bg"></span>
+                  <span class="swatch-glow blue"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>White</strong>
+                  <span>Clean Light</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- System Preferences & Fast Sign Out -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">System & Session Settings</h4>
+            <p class="card-desc">Audio preferences and fast account management.</p>
+
+            <div class="settings-toggle-list">
+              <label class="settings-toggle-item">
+                <div class="toggle-text">
+                  <strong>Game Sound Effects</strong>
+                  <span>Play arcade audio cues and rewards</span>
+                </div>
+                <input type="checkbox" id="profile-sound" checked>
+              </label>
+
+              <label class="settings-toggle-item">
+                <div class="toggle-text">
+                  <strong>Performance Mode</strong>
+                  <span>Reduce motion for smoother FPS on mobile</span>
+                </div>
+                <input type="checkbox" id="profile-lowspec">
+              </label>
+            </div>
+
+            <div class="settings-footer-actions">
+              <button type="button" id="profile-logout-btn" class="btn-danger btn-logout-fast">
+                🚪 Sign Out of Account
+              </button>
+              <button type="button" id="profile-reset-guest-btn" class="btn-secondary btn-sm" style="display:none;">
+                Reset Guest Data
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Dashboard View (100% Real Firestore Live Data & Moderation) -->
+    <section id="view-admin" class="view">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Admin Control Center</h2>
+          <p class="section-subtitle">Real-time Firebase Firestore database management, user moderation, and economy telemetry.</p>
+        </div>
+        <div class="admin-header-actions">
+          <button id="admin-export-csv-btn" class="btn-secondary btn-sm">📥 Export Users CSV</button>
+          <button id="admin-refresh-btn" class="btn-secondary btn-sm">🔄 Refresh Live Data</button>
+          <button id="admin-exit-btn" class="btn-ghost btn-sm">Exit Admin Mode</button>
+        </div>
+      </div>
+
+      <!-- Real Firestore Live Metric Counters -->
+      <div class="admin-metrics-grid">
+        <div class="admin-stat-card">
+          <span class="admin-stat-icon">👥</span>
+          <div class="admin-stat-info">
+            <span class="admin-stat-label">Total Registered Users</span>
+            <span id="admin-total-users" class="admin-stat-val">--</span>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-icon">🪙</span>
+          <div class="admin-stat-info">
+            <span class="admin-stat-label">Total Coins in Circulation</span>
+            <span id="admin-total-coins" class="admin-stat-val">--</span>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-icon">₹</span>
+          <div class="admin-stat-info">
+            <span class="admin-stat-label">Total Economy Value (INR)</span>
+            <span id="admin-total-inr" class="admin-stat-val">--</span>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-icon">💳</span>
+          <div class="admin-stat-info">
+            <span class="admin-stat-label">Pending Withdrawals</span>
+            <span id="admin-pending-withdrawals" class="admin-stat-val">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live User Database Table with Search & Instant Actions -->
+      <div class="admin-panel-card">
+        <div class="admin-panel-header">
+          <div>
+            <h3 class="card-title">Live User Database & Moderation</h3>
+            <p class="card-desc">All user accounts, persistent guests, and real-time balances in Firestore collection.</p>
+          </div>
+          <div class="admin-search-wrap">
+            <input type="text" id="admin-user-search" placeholder="Search by username, email or UID...">
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table" id="admin-users-table">
+            <thead>
+              <tr>
+                <th>User / Player</th>
+                <th>UID</th>
+                <th>Type</th>
+                <th>Coins</th>
+                <th>INR Value</th>
+                <th>Status</th>
+                <th>Last Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody">
+              <tr><td colspan="8" class="table-loading">Querying live Firestore collection...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Direct Account Moderation & Blocklist Tool -->
+      <div class="admin-panel-card" style="margin-top: 24px;">
+        <div class="admin-panel-header">
+          <div>
+            <h3 class="card-title">Account Suspension & Blocklist Tool</h3>
+            <p class="card-desc">Block specific email addresses, UIDs, or phone guest IDs from accessing the portal.</p>
+          </div>
+          <span class="admin-sub-tag" id="admin-blocked-count">0 Suspended</span>
+        </div>
+        <form id="admin-block-form" class="admin-block-form">
+          <div class="block-form-inputs">
+            <input type="text" id="admin-block-target" placeholder="Enter Email Address or UID to block..." required>
+            <input type="text" id="admin-block-reason" placeholder="Reason (e.g. Cheating, Botting, Abuse)" maxlength="60">
+            <button type="submit" class="btn-danger">Block / Suspend</button>
+          </div>
+        </form>
+        <div class="admin-table-wrap" style="margin-top: 14px;">
+          <table class="admin-table" id="admin-blocked-table">
+            <thead>
+              <tr>
+                <th>Suspended Identifier (Email / UID)</th>
+                <th>Reason</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-blocked-tbody">
+              <tr><td colspan="3" class="table-empty">No accounts currently suspended.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live Withdrawal Requests Panel from Firestore -->
+      <div class="admin-panel-card" style="margin-top: 24px;">
+        <div class="admin-panel-header">
+          <div>
+            <h3 class="card-title">Live Withdrawal Requests (Firestore)</h3>
+            <p class="card-desc">Real payout requests submitted by players to UPI or Amazon Pay.</p>
+          </div>
+          <span class="admin-sub-tag" id="admin-withdrawals-count">0 Requests</span>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table" id="admin-withdrawals-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>User</th>
+                <th>UPI ID</th>
+                <th>Coins</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
+            <tbody id="admin-withdrawals-tbody">
+              <tr><td colspan="7" class="table-loading">Querying live withdrawal requests...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Coin Adjuster Tool & Broadcast Manager -->
+      <div class="admin-grid-two" style="margin-top: 24px;">
+        <div class="admin-panel-card">
+          <h3 class="card-title">Direct Coin Manager</h3>
+          <p class="card-desc">Credit or debit coins for any user directly in Firestore.</p>
+          <form id="admin-coin-adjust-form" class="admin-inline-form">
+            <div class="form-group">
+              <label>Target User UID</label>
+              <input type="text" id="admin-adjust-uid" placeholder="Paste user UID or select from table above" required>
+            </div>
+            <div class="form-group">
+              <label>Coin Adjustment (+ to add, - to deduct)</label>
+              <input type="number" id="admin-adjust-amount" placeholder="e.g. 500 or -200" required>
+            </div>
+            <button type="submit" class="btn-primary">Apply to Firestore Database</button>
+          </form>
+        </div>
+
+        <!-- Global Announcement & Economy Controls -->
+        <div class="admin-panel-card">
+          <h3 class="card-title">Global Broadcast & Economy Controls</h3>
+          <p class="card-desc">Publish real-time announcements to all players and view rates.</p>
+          <form id="admin-announcement-form" class="admin-inline-form">
+            <div class="form-group">
+              <label>Live Banner Announcement</label>
+              <input type="text" id="admin-announcement-input" placeholder="Type banner message (e.g. 2x Coins Weekend Active!)...">
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="submit" class="btn-primary" style="flex:1;">Publish Notice</button>
+              <button type="button" id="admin-clear-announcement-btn" class="btn-secondary">Clear</button>
+            </div>
+          </form>
+          <div style="margin-top:16px;">
+            <div class="admin-settings-row">
+              <span>Coin Earning Rate:</span>
+              <strong>+5 Coins / 30s (+10 Coins/min)</strong>
+            </div>
+            <div class="admin-settings-row">
+              <span>Conversion Standard:</span>
+              <strong style="color:#34D399;">1,000 Coins = ₹1.00 INR</strong>
+            </div>
+            <div class="admin-settings-row">
+              <span>Minimum Payout:</span>
+              <strong>1,000 Coins (₹1.00)</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+</main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav id="mobile-nav">
+    <button class="mob-nav-item active" data-view="discover"><span>🎮</span><span>Games</span></button>
+    <button class="mob-nav-item" data-view="analytics"><span>📊</span><span>Stats</span></button>
+    <button class="mob-nav-item" data-view="leaderboard"><span>🏆</span><span>Ranks</span></button>
+    <button class="mob-nav-item" data-view="wallet"><span>🪙</span><span>Wallet</span></button>
+    <button class="mob-nav-item" data-view="profile"><span>👤</span><span>Profile</span></button>
+  </nav>
+</div>
+
+<!-- Floating APK Download Banner (Web-Only, Dismissible) -->
+<div id="apk-floating-banner" class="apk-floating-banner" style="display:none;">
+  <div class="apk-banner-body">
+    <div class="apk-banner-icon">🤖</div>
+    <div class="apk-banner-text">
+      <div class="apk-banner-title">Download & Play in Your Phone</div>
+      <div class="apk-banner-sub">Install Android APK for instant, smooth fullscreen play</div>
+    </div>
+    <div class="apk-banner-actions">
+      <a href="https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk" class="btn-apk-banner" download title="Download APK for Android">
+        <span>Get APK</span>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </a>
+      <button id="apk-banner-close" class="apk-close-btn" title="Dismiss">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="app-toast" class="app-toast">
+  <span class="toast-icon">✓</span>
+  <span class="toast-message" id="toast-message">Success</span>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

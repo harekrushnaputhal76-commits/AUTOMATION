@@ -66,6 +66,7 @@ def main():
     repo_targets = [
         TEMP_SYNC,
         os.path.join(TEMP_SYNC, "docs"),
+        os.path.join(TEMP_SYNC, "nextplay", "public"),
         os.path.join(TEMP_SYNC, "game", "nextplay", "public")
     ]
     for target in repo_targets:
@@ -76,6 +77,24 @@ def main():
             dst = os.path.join(target, f)
             if os.path.exists(src):
                 shutil.copy2(src, dst)
+
+    # Copy Capacitor project files
+    cap_files = ["package.json", "package-lock.json", "capacitor.config.json"]
+    for cap_dst_dir in [os.path.join(TEMP_SYNC, "nextplay"), os.path.join(TEMP_SYNC, "game", "nextplay")]:
+        os.makedirs(cap_dst_dir, exist_ok=True)
+        for cf in cap_files:
+            src_cf = os.path.join(ROOT_DIR, "nextplay", cf)
+            if os.path.exists(src_cf):
+                shutil.copy2(src_cf, os.path.join(cap_dst_dir, cf))
+
+    # Copy .github workflows
+    src_github = os.path.join(ROOT_DIR, ".github")
+    if os.path.exists(src_github):
+        dst_github = os.path.join(TEMP_SYNC, ".github")
+        if os.path.exists(dst_github):
+            safe_remove_tree(dst_github)
+        shutil.copytree(src_github, dst_github)
+        print("  Mirrored -> .github/workflows")
 
     # Copy root helper scripts if available
     for extra in ["run.bat", "push_git.bat", "push_git.py"]:

@@ -2766,11 +2766,15 @@
       return;
     }
 
-    // Web Browser context: bind download feedback
+    const REAL_APK_DOWNLOAD_URL = "https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk";
+
+    // Web Browser context: bind download feedback & link to real GitHub Release
     const downloadBtns = document.querySelectorAll(".apk-download-btn, .sidebar-apk-card, .btn-apk-banner");
     downloadBtns.forEach(btn => {
+      btn.href = REAL_APK_DOWNLOAD_URL;
+      btn.setAttribute("download", "nexplay-arcade.apk");
       btn.addEventListener("click", () => {
-        showToast("Starting APK download...", "\u2193");
+        showToast("Starting APK download from GitHub Releases...", "⬇️");
       });
     });
 
