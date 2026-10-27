@@ -3592,3 +3592,8 @@ body.is-native-app .apk-floating-banner {
   background: rgba(2, 132, 199, 0.08);
   border-color: #0284C7;
 }
+
+/* Hide intrusive in-game miner bar and ticker completely */
+.theater-miner-bar, #theater-miner, .miner-hud, #miner-hud {
+  display: none !important;
+}

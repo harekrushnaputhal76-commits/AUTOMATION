@@ -948,15 +948,12 @@
     state.isIdle = false;
     state.lastActivity = Date.now();
 
-    $("#miner-hud").style.display = "inline-flex";
-    $("#theater-session-coins").textContent = "+0 ⚡";
-    $("#theater-session-time").textContent = "0:00";
-
     const resetActivity = () => {
       state.lastActivity = Date.now();
       if(state.isIdle){
         state.isIdle = false;
-        $("#idle-overlay").style.display = "none";
+        const idle = $("#idle-overlay");
+        if(idle) idle.style.display = "none";
       }
     };
 
@@ -964,26 +961,21 @@
       document.addEventListener(evt, resetActivity, { passive: true });
     });
 
-    // Mining Loop (every 30s = +5 Coins)
+    // Clean background coin reward loop (silent, awards coins directly to wallet & Firestore)
     state.miningTimer = setInterval(async () => {
       if(state.isIdle) return;
-      const elapsedSec = Math.floor((Date.now() - state.sessionStart) / 1000);
-      const mins = Math.floor(elapsedSec / 60);
-      const secs = (elapsedSec % 60).toString().padStart(2, "0");
-      $("#theater-session-time").textContent = `${mins}:${secs}`;
-
       state.sessionCoins += COINS_PER_30S;
-      $("#theater-session-coins").textContent = `+${state.sessionCoins} ⚡`;
 
-      // Reward coins and sync to Firestore
-      await syncCoinsToFirestore(COINS_PER_30S, "Gameplay Reward", game.title || "Game Session");
+      // Reward coins silently and sync to Firestore
+      await syncCoinsToFirestore(COINS_PER_30S, "Gameplay Reward", (game && game.title) ? game.title : "Game Session");
     }, MINING_INTERVAL_MS);
 
     // Idle Check Loop
     state.idleTimer = setInterval(() => {
       if(Date.now() - state.lastActivity > IDLE_TIMEOUT_MS && !state.isIdle){
         state.isIdle = true;
-        $("#idle-overlay").style.display = "flex";
+        const idle = $("#idle-overlay");
+        if(idle) idle.style.display = "flex";
       }
     }, 5000);
   }
@@ -993,7 +985,6 @@
     if(state.idleTimer) clearInterval(state.idleTimer);
     state.miningTimer = null;
     state.idleTimer = null;
-    $("#miner-hud").style.display = "none";
   }
 
   // ── Real-Time Esports Leaderboard (Firebase Firestore onSnapshot) ──
