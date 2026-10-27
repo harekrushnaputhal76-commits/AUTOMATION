@@ -7,20 +7,21 @@
 <meta name="description" content="Play 100+ free HTML5 games, earn coins, and compete on the global leaderboard.">
 <meta name="theme-color" content="#090A0F">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
-<!-- AdSense Header Slot -->
-<div id="adsense-header-slot" class="ad-slot ad-header" style="display:none;"></div>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body class="no-low-spec">
 
-<!-- Auth Modal -->
-<div id="auth-modal" class="modal-overlay">
+<!-- Auth Modal (Optional popup, hidden by default) -->
+<div id="auth-modal" class="modal-overlay" style="display:none;">
   <div class="modal-card">
+    <button type="button" id="auth-modal-close" class="modal-close-btn" title="Close">✕</button>
     <div class="modal-brand"><span class="brand-icon">▶</span> NexPlay Arcade</div>
     <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="login">Sign In</button>
-      <button class="modal-tab" data-tab="register">Create Account</button>
+      <button type="button" class="modal-tab active" data-tab="login">Sign In</button>
+      <button type="button" class="modal-tab" data-tab="register">Create Account</button>
     </div>
     <form id="auth-form">
       <div class="input-group">
@@ -35,8 +36,8 @@
   </div>
 </div>
 
-<!-- Main App Shell -->
-<div id="app" style="display:none;">
+<!-- Main App Shell (Direct Home Page) -->
+<div id="app">
   <!-- Desktop Sidebar -->
   <nav id="sidebar">
     <div class="sidebar-brand"><span class="brand-icon">▶</span><span class="brand-text">NexPlay</span></div>
@@ -51,6 +52,7 @@
     <div class="sidebar-footer">
       <div class="coin-display"><span class="coin-icon">⬡</span><span id="sidebar-coins">0</span></div>
       <button id="chat-toggle" class="btn-ghost">💬 Chat</button>
+      <button id="sidebar-signin-btn" class="btn-ghost" style="display:none;">🔑 Sign In</button>
       <button id="logout-btn" class="btn-ghost">↩ Logout</button>
     </div>
   </nav>
@@ -69,9 +71,13 @@
           <span class="miner-dot"></span><span id="miner-status">Mining...</span>
           <span id="miner-coins-rate">+0</span>
         </div>
+        <button id="hud-signin-btn" class="btn-primary btn-sm" style="display:none;">Sign In</button>
         <span id="hud-user" class="hud-user"></span>
       </div>
     </header>
+
+    <!-- AdSense Header Slot -->
+    <div id="adsense-header-slot" class="ad-slot ad-header" style="display:none;"></div>
 
     <!-- Discover View -->
     <section id="view-discover" class="view active">
@@ -121,6 +127,7 @@
         <button id="theater-back" class="btn-ghost">← Back</button>
         <span id="theater-title" class="theater-game-title"></span>
         <div class="theater-controls">
+          <a id="theater-popout" class="btn-icon" target="_blank" rel="noopener" title="Open Fullscreen in New Tab">↗</a>
           <button id="theater-mute" class="btn-icon" title="Mute/Unmute">🔊</button>
           <button id="theater-expand" class="btn-icon" title="Expand">⛶</button>
           <button id="theater-fullscreen" class="btn-icon" title="Fullscreen">⤢</button>
@@ -140,7 +147,13 @@
           <button class="btn-primary" id="resume-btn">Click to Resume</button>
         </div>
       </div>
-      <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
+      <div class="theater-stage">
+        <div id="game-loader-overlay" class="game-loader-overlay">
+          <div class="loader-spinner"></div>
+          <div class="loader-text">INITIALIZING QUANTUM RUNTIME...</div>
+        </div>
+        <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
+      </div>
       <div id="game-instructions-drawer" class="instructions-drawer" style="display:none;">
         <h3>Game Instructions</h3>
         <p id="game-instructions-text"></p>
@@ -156,7 +169,7 @@
         <div class="stat-card"><span class="stat-label">Total Gamers</span><span id="stat-users" class="stat-value">—</span></div>
         <div class="stat-card"><span class="stat-label">Coins Mined</span><span id="stat-coins" class="stat-value">—</span></div>
         <div class="stat-card accent"><span class="stat-label">Active Now</span><span id="stat-active" class="stat-value">—</span></div>
-        <div class="stat-card gold"><span class="stat-label">Prize Pool</span><span id="stat-pool" class="stat-value">—</span></div>
+        <div class="stat-card pink"><span class="stat-label">Prize Pool</span><span id="stat-pool" class="stat-value">—</span></div>
       </div>
       <div class="chart-row">
         <div class="chart-card"><canvas id="chart-activity"></canvas></div>
@@ -167,6 +180,7 @@
     <!-- Leaderboard View -->
     <section id="view-leaderboard" class="view">
       <h2 class="section-title">Global Rankings</h2>
+      <div class="leaderboard-podium" id="leaderboard-podium"></div>
       <div class="leaderboard-table" id="leaderboard-body"></div>
     </section>
 
@@ -266,6 +280,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-<script src="/js/app.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

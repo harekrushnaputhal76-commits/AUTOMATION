@@ -1,19 +1,24 @@
 import os, time, json, sqlite3, hashlib, hmac, secrets, html, re, asyncio, unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import Optional
+from urllib.parse import quote
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 import aiohttp
 from dotenv import load_dotenv
 
-load_dotenv()
+# ── Paths & Config ──
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.join(BASE_DIR, "public")
+DB_PATH = os.path.join(BASE_DIR, "gaming_portal.db")
 
-# ── Config (ALL secrets from .env) ──
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme_admin_2025")
 COIN_PER_MINUTE = int(os.getenv("COIN_PER_MINUTE", "2"))
@@ -21,29 +26,53 @@ HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "30"))
 IDLE_TIMEOUT = int(os.getenv("IDLE_TIMEOUT", "60"))
 TOKEN_TTL = int(os.getenv("TOKEN_TTL", "3600"))
 MAX_USERNAME_LEN = 24
-DB_PATH = "gaming_portal.db"
 GAME_CACHE = {"data": None, "ts": 0, "ttl": 900}
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,24}$")
 
+FALLBACK_GAMES_DEF = [
+    ("Stack Tower","Stack blocks as high as you can!","https://html5.gamemonetize.com/StackTower/","Arcade","#6A11CB","#2575FC"),
+    ("Flappy Bird Clone","Tap to fly through pipes","https://html5.gamemonetize.com/FlappyBird/","Arcade","#F37335","#FDC830"),
+    ("Color Switch","Time your taps perfectly","https://html5.gamemonetize.com/ColorSwitch/","Puzzle","#00B4DB","#0083B0"),
+    ("2048","Slide tiles to reach 2048","https://html5.gamemonetize.com/2048/","Puzzle","#ED4264","#FFEDBC"),
+    ("Knife Hit","Throw knives at the spinning log","https://html5.gamemonetize.com/KnifeHit/","Action","#E52D27","#B31217"),
+    ("Basketball Stars","Shoot hoops against opponents","https://html5.gamemonetize.com/BasketballStars/","Sports","#FE8C00","#F83600"),
+    ("Tank Stars","Aim and destroy enemy tanks","https://html5.gamemonetize.com/TankStars/","Shooting","#134E5E","#71B280"),
+    ("Drift Boss","Drift as far as you can","https://html5.gamemonetize.com/DriftBoss/","Racing","#8E2DE2","#4A00E0"),
+    ("Temple Run 2 Online","Run and dodge obstacles","https://html5.gamemonetize.com/TempleRun2/","Action","#F7971E","#FFD200"),
+    ("Candy Crush Clone","Match 3 candies","https://html5.gamemonetize.com/CandyCrush/","Puzzle","#FF416C","#FF4B2B"),
+    ("Slither.io Clone","Eat and grow your snake","https://html5.gamemonetize.com/Slither/","Multiplayer","#11998E","#38EF7D"),
+    ("Moto X3M","Ride through crazy tracks","https://html5.gamemonetize.com/MotoX3M/","Racing","#FC466B","#3F5EFB"),
+    ("Zombie Shooter","Survive zombie waves","https://html5.gamemonetize.com/ZombieShooter/","Shooting","#232526","#414345"),
+    ("Soccer Skills","Score goals with style","https://html5.gamemonetize.com/SoccerSkills/","Sports","#1D976C","#93F9B9"),
+    ("Tetris Classic","Classic block stacking","https://html5.gamemonetize.com/Tetris/","Arcade","#4568DC","#B06AB3"),
+]
+
+def make_fallback_thumb(title: str, cat: str, c1: str, c2: str) -> str:
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">'
+        f'<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">'
+        f'<stop offset="0%" stop-color="{c1}"/><stop offset="100%" stop-color="{c2}"/>'
+        f'</linearGradient></defs>'
+        f'<rect width="400" height="250" fill="url(#g)" rx="12"/>'
+        f'<circle cx="200" cy="95" r="34" fill="rgba(0,0,0,0.3)"/>'
+        f'<polygon points="192,82 216,95 192,108" fill="#CCFF00"/>'
+        f'<text x="200" y="165" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-weight="700" font-size="20">{html.escape(title)}</text>'
+        f'<text x="200" y="195" text-anchor="middle" fill="#CCFF00" font-family="sans-serif" font-weight="600" font-size="13">{html.escape(cat).upper()}</text>'
+        f'</svg>'
+    )
+    return f"data:image/svg+xml;utf8,{quote(svg)}"
+
 FALLBACK_GAMES = [
-    {"id":f"fb{i}","title":t,"description":d,"url":u,"thumb":"","category":c,"instructions":"Use keyboard/mouse to play."}
-    for i,(t,d,u,c) in enumerate([
-        ("Stack Tower","Stack blocks as high as you can!","https://html5.gamemonetize.com/StackTower/","Arcade"),
-        ("Flappy Bird Clone","Tap to fly through pipes","https://html5.gamemonetize.com/FlappyBird/","Arcade"),
-        ("Color Switch","Time your taps perfectly","https://html5.gamemonetize.com/ColorSwitch/","Puzzle"),
-        ("2048","Slide tiles to reach 2048","https://html5.gamemonetize.com/2048/","Puzzle"),
-        ("Knife Hit","Throw knives at the spinning log","https://html5.gamemonetize.com/KnifeHit/","Action"),
-        ("Basketball Stars","Shoot hoops against opponents","https://html5.gamemonetize.com/BasketballStars/","Sports"),
-        ("Tank Stars","Aim and destroy enemy tanks","https://html5.gamemonetize.com/TankStars/","Shooting"),
-        ("Drift Boss","Drift as far as you can","https://html5.gamemonetize.com/DriftBoss/","Racing"),
-        ("Temple Run 2 Online","Run and dodge obstacles","https://html5.gamemonetize.com/TempleRun2/","Action"),
-        ("Candy Crush Clone","Match 3 candies","https://html5.gamemonetize.com/CandyCrush/","Puzzle"),
-        ("Slither.io Clone","Eat and grow your snake","https://html5.gamemonetize.com/Slither/","Multiplayer"),
-        ("Moto X3M","Ride through crazy tracks","https://html5.gamemonetize.com/MotoX3M/","Racing"),
-        ("Zombie Shooter","Survive zombie waves","https://html5.gamemonetize.com/ZombieShooter/","Shooting"),
-        ("Soccer Skills","Score goals with style","https://html5.gamemonetize.com/SoccerSkills/","Sports"),
-        ("Tetris Classic","Classic block stacking","https://html5.gamemonetize.com/Tetris/","Arcade"),
-    ],1)
+    {
+        "id": f"fb{i}",
+        "title": t,
+        "description": d,
+        "url": u,
+        "thumb": make_fallback_thumb(t, c, c1, c2),
+        "category": c,
+        "instructions": "Use keyboard/mouse to play."
+    }
+    for i, (t, d, u, c, c1, c2) in enumerate(FALLBACK_GAMES_DEF, 1)
 ]
 
 # ── Sanitization Helper ──
@@ -60,6 +89,12 @@ def sanitize(text: str, max_len: int = 200) -> str:
 def sanitize_profanity(text: str) -> str:
     words = text.split()
     return " ".join("***" if w.lower().strip(".,!?;:") in PROFANITY else w for w in words)
+
+def clean_setting_value(key: str, value: str) -> str:
+    if key == "ads_txt":
+        return CONTROL_CHAR_RE.sub("", value.strip())[:50000]
+    cleaned = CONTROL_CHAR_RE.sub("", value.strip())[:5000]
+    return sanitize(cleaned, 5000)
 
 # ── Database ──
 def get_db():
@@ -116,13 +151,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+            "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self' https://cdn.jsdelivr.net https://pagead2.googlesyndication.com 'unsafe-inline' 'unsafe-eval'; "
             "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "frame-src https://html5.gamemonetize.com https://*.gamemonetize.com; "
-            "img-src 'self' https: data:; "
-            "connect-src 'self' wss: ws:; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "frame-src 'self' https: http: data: blob:; "
+            "img-src 'self' https: http: data: blob:; "
+            "connect-src 'self' wss: ws: https:; "
         )
         return response
 
@@ -133,6 +168,15 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="NexPlay Arcade API", lifespan=lifespan)
+
+# CORS middleware for Capacitor / Mobile APK / Cross-Origin frontend support
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ── HMAC Auth with TTL ──
@@ -144,8 +188,6 @@ def gen_token(uid: int) -> str:
     sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}:{sig}"
 
-TOKEN_STORE: dict[str, dict] = {}
-
 def validate_token(token: str) -> Optional[int]:
     parts = token.split(":")
     if len(parts) != 3:
@@ -154,9 +196,12 @@ def validate_token(token: str) -> Optional[int]:
     expected = hmac.new(SECRET_KEY.encode(), f"{uid_str}:{ts_str}".encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected):
         return None
-    if (time.time() - float(ts_str)) > TOKEN_TTL:
+    try:
+        if (time.time() - float(ts_str)) > TOKEN_TTL:
+            return None
+        return int(uid_str)
+    except (ValueError, TypeError):
         return None
-    return int(uid_str)
 
 def get_current_user(request: Request):
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -177,20 +222,22 @@ SESSION_RATE_LIMIT = 5  # max 1 session start per 5s
 chat_rate: dict[int, float] = {}
 CHAT_RATE_LIMIT = 3
 
-# ── Models with Validation ──
+# ── Models with Pydantic V2 Field Validators ──
 class AuthModel(BaseModel):
     username: str
     password: str
 
-    @validator("username")
-    def valid_username(cls, v):
+    @field_validator("username")
+    @classmethod
+    def valid_username(cls, v: str) -> str:
         v = v.strip()
         if not USERNAME_RE.match(v):
             raise ValueError("Username: 3-24 chars, letters/numbers/underscores only")
         return v
 
-    @validator("password")
-    def valid_password(cls, v):
+    @field_validator("password")
+    @classmethod
+    def valid_password(cls, v: str) -> str:
         if len(v) < 4 or len(v) > 128:
             raise ValueError("Password must be 4-128 characters")
         return v
@@ -201,8 +248,9 @@ class HeartbeatModel(BaseModel):
 class ChatInput(BaseModel):
     message: str
 
-    @validator("message")
-    def valid_message(cls, v):
+    @field_validator("message")
+    @classmethod
+    def valid_message(cls, v: str) -> str:
         v = v.strip()
         if not v or len(v) > 200:
             raise ValueError("Message must be 1-200 characters")
@@ -218,8 +266,9 @@ class ProfileUpdate(BaseModel):
     sound_enabled: Optional[bool] = None
     low_spec_mode: Optional[bool] = None
 
-    @validator("username")
-    def valid_username(cls, v):
+    @field_validator("username")
+    @classmethod
+    def valid_username(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
         v = v.strip()
@@ -227,8 +276,9 @@ class ProfileUpdate(BaseModel):
             raise ValueError("Username: 3-24 chars, letters/numbers/underscores only")
         return v
 
-    @validator("avatar")
-    def valid_avatar(cls, v):
+    @field_validator("avatar")
+    @classmethod
+    def valid_avatar(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
         allowed = {"default","👤","🎮","🕹️","🏆","⚡","🔥","💎","🦊","🐉","🤖","👾","🎯"}
@@ -241,10 +291,13 @@ class ProfileUpdate(BaseModel):
 async def register(body: AuthModel):
     db = get_db()
     if db.execute("SELECT id FROM Users WHERE username=?", (body.username,)).fetchone():
-        db.close(); raise HTTPException(409, "Username taken")
+        db.close()
+        raise HTTPException(409, "Username taken")
     cur = db.execute("INSERT INTO Users (username, password_hash) VALUES (?,?)",
                      (body.username, hash_pw(body.password)))
-    db.commit(); uid = cur.lastrowid; db.close()
+    db.commit()
+    uid = cur.lastrowid
+    db.close()
     token = gen_token(uid)
     return {"token": token, "user_id": uid, "username": body.username}
 
@@ -254,12 +307,19 @@ async def login(body: AuthModel):
     user = db.execute("SELECT * FROM Users WHERE username=? AND password_hash=?",
                       (body.username, hash_pw(body.password))).fetchone()
     db.close()
-    if not user: raise HTTPException(401, "Invalid credentials")
+    if not user:
+        raise HTTPException(401, "Invalid credentials")
     token = gen_token(user["id"])
-    return {"token": token, "user_id": user["id"], "username": user["username"],
-            "coins": user["coins"], "is_admin": bool(user["is_admin"]),
-            "avatar": user["avatar"], "sound_enabled": bool(user["sound_enabled"]),
-            "low_spec_mode": bool(user["low_spec_mode"])}
+    return {
+        "token": token,
+        "user_id": user["id"],
+        "username": user["username"],
+        "coins": user["coins"],
+        "is_admin": bool(user["is_admin"]),
+        "avatar": user["avatar"],
+        "sound_enabled": bool(user["sound_enabled"]),
+        "low_spec_mode": bool(user["low_spec_mode"])
+    }
 
 # ── Games Proxy ──
 @app.get("/api/games")
@@ -300,7 +360,9 @@ async def session_start(game_id: str = Query(..., max_length=120), user=Depends(
     db.execute("UPDATE Sessions SET is_active=0 WHERE user_id=? AND is_active=1", (uid,))
     cur = db.execute("INSERT INTO Sessions (user_id,game_id,started_at,last_heartbeat) VALUES (?,?,?,?)",
                      (uid, game_id, now, now))
-    db.commit(); sid = cur.lastrowid; db.close()
+    db.commit()
+    sid = cur.lastrowid
+    db.close()
     return {"session_id": sid, "started_at": now}
 
 @app.post("/api/session/heartbeat")
@@ -309,14 +371,17 @@ async def session_heartbeat(body: HeartbeatModel, user=Depends(get_current_user)
     sess = db.execute("SELECT * FROM Sessions WHERE id=? AND user_id=? AND is_active=1",
                       (body.session_id, user["id"])).fetchone()
     if not sess:
-        db.close(); raise HTTPException(400, "No active session")
+        db.close()
+        raise HTTPException(400, "No active session")
     now = time.time()
     elapsed = now - sess["last_heartbeat"]
     if elapsed < (HEARTBEAT_INTERVAL - 5):
-        db.close(); raise HTTPException(429, "Heartbeat too fast — anti-cheat triggered")
+        db.close()
+        raise HTTPException(429, "Heartbeat too fast — anti-cheat triggered")
     if elapsed > (IDLE_TIMEOUT + 30):
         db.execute("UPDATE Sessions SET is_active=0 WHERE id=?", (body.session_id,))
-        db.commit(); db.close()
+        db.commit()
+        db.close()
         return {"status": "expired", "coins_added": 0}
     coins = int((elapsed / 60) * COIN_PER_MINUTE)
     coins = max(0, min(coins, COIN_PER_MINUTE * 2))
@@ -324,7 +389,8 @@ async def session_heartbeat(body: HeartbeatModel, user=Depends(get_current_user)
                (now, coins, int(elapsed), body.session_id))
     db.execute("UPDATE Users SET coins=coins+?, total_playtime=total_playtime+? WHERE id=?",
                (coins, int(elapsed), user["id"]))
-    db.commit(); db.close()
+    db.commit()
+    db.close()
     return {"status": "ok", "coins_added": coins, "elapsed": int(elapsed)}
 
 @app.post("/api/session/end")
@@ -347,23 +413,36 @@ async def get_wallet(user=Depends(get_current_user)):
     logs = [dict(r) for r in db.execute(
         "SELECT * FROM PlayLogs WHERE user_id=? ORDER BY created_at DESC LIMIT 50", (user["id"],)).fetchall()]
     db.close()
-    return {"coins": user["coins"], "total_playtime": user["total_playtime"],
-            "inr_value": round(user["coins"] / 100, 2), "logs": logs,
-            "min_redeem": 1000, "min_redeem_inr": 10.0,
-            "payout_status": "Season 1 Coin Stacking Active — UPI & Voucher Payouts Unlock in Upcoming v2.0 Update!"}
+    return {
+        "coins": user["coins"],
+        "total_playtime": user["total_playtime"],
+        "inr_value": round(user["coins"] / 100, 2),
+        "logs": logs,
+        "min_redeem": 1000,
+        "min_redeem_inr": 10.0,
+        "payout_status": "Season 1 Coin Stacking Active — UPI & Voucher Payouts Unlock in Upcoming v2.0 Update!"
+    }
 
 @app.get("/api/profile")
 async def get_profile(user=Depends(get_current_user)):
-    return {"id": user["id"], "username": user["username"], "avatar": user["avatar"],
-            "coins": user["coins"], "total_playtime": user["total_playtime"],
-            "sound_enabled": bool(user["sound_enabled"]), "low_spec_mode": bool(user["low_spec_mode"])}
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "avatar": user["avatar"],
+        "coins": user["coins"],
+        "total_playtime": user["total_playtime"],
+        "sound_enabled": bool(user["sound_enabled"]),
+        "low_spec_mode": bool(user["low_spec_mode"])
+    }
 
 @app.put("/api/profile")
 async def update_profile(body: ProfileUpdate, user=Depends(get_current_user)):
     db = get_db()
     if body.username:
         existing = db.execute("SELECT id FROM Users WHERE username=? AND id!=?", (body.username, user["id"])).fetchone()
-        if existing: db.close(); raise HTTPException(409, "Username taken")
+        if existing:
+            db.close()
+            raise HTTPException(409, "Username taken")
         db.execute("UPDATE Users SET username=? WHERE id=?", (body.username, user["id"]))
     if body.avatar:
         db.execute("UPDATE Users SET avatar=? WHERE id=?", (body.avatar, user["id"]))
@@ -371,7 +450,8 @@ async def update_profile(body: ProfileUpdate, user=Depends(get_current_user)):
         db.execute("UPDATE Users SET sound_enabled=? WHERE id=?", (int(body.sound_enabled), user["id"]))
     if body.low_spec_mode is not None:
         db.execute("UPDATE Users SET low_spec_mode=? WHERE id=?", (int(body.low_spec_mode), user["id"]))
-    db.commit(); db.close()
+    db.commit()
+    db.close()
     return {"status": "updated"}
 
 # ── Leaderboard & Analytics ──
@@ -394,14 +474,20 @@ async def analytics():
     total_users = db.execute("SELECT COUNT(*) c FROM Users").fetchone()["c"]
     total_coins = db.execute("SELECT COALESCE(SUM(coins),0) c FROM Users").fetchone()["c"]
     active_sessions = db.execute("SELECT COUNT(*) c FROM Sessions WHERE is_active=1").fetchone()["c"]
-    impressions = int(db.execute("SELECT value FROM PlatformSettings WHERE key='total_impressions'").fetchone()["value"])
+    impressions_row = db.execute("SELECT value FROM PlatformSettings WHERE key='total_impressions'").fetchone()
+    impressions = int(impressions_row["value"]) if impressions_row else 0
     db.close()
     pool_total = total_coins
     platform_share = round(pool_total * 0.9, 2)
     community_share = round(pool_total * 0.1, 2)
-    return {"total_users": total_users, "total_coins_mined": total_coins,
-            "active_gamers": active_sessions, "estimated_impressions": impressions,
-            "platform_reserve": platform_share, "community_prize_pool": community_share}
+    return {
+        "total_users": total_users,
+        "total_coins_mined": total_coins,
+        "active_gamers": active_sessions,
+        "estimated_impressions": impressions,
+        "platform_reserve": platform_share,
+        "community_prize_pool": community_share
+    }
 
 # ── Admin ──
 def admin_guard(user=Depends(get_current_user)):
@@ -419,7 +505,10 @@ async def admin_login(password: str = Query(...)):
 async def admin_promote(user_id: int = Query(...), password: str = Query(...)):
     if not hmac.compare_digest(password, ADMIN_PASSWORD):
         raise HTTPException(401, "Wrong admin password")
-    db = get_db(); db.execute("UPDATE Users SET is_admin=1 WHERE id=?", (user_id,)); db.commit(); db.close()
+    db = get_db()
+    db.execute("UPDATE Users SET is_admin=1 WHERE id=?", (user_id,))
+    db.commit()
+    db.close()
     return {"status": "promoted"}
 
 @app.get("/api/admin/settings")
@@ -433,8 +522,10 @@ async def admin_get_settings(user=Depends(admin_guard)):
 @app.put("/api/admin/settings")
 async def admin_update_setting(body: AdminSettingModel, user=Depends(admin_guard)):
     db = get_db()
-    db.execute("INSERT OR REPLACE INTO PlatformSettings (key,value) VALUES (?,?)", (body.key, sanitize(body.value, 5000)))
-    db.commit(); db.close()
+    cleaned = clean_setting_value(body.key, body.value)
+    db.execute("INSERT OR REPLACE INTO PlatformSettings (key,value) VALUES (?,?)", (body.key, cleaned))
+    db.commit()
+    db.close()
     return {"status": "updated"}
 
 # ── ads.txt Route ──
@@ -450,10 +541,20 @@ async def adsense_config():
     db = get_db()
     settings = {r["key"]: r["value"] for r in db.execute("SELECT * FROM PlatformSettings").fetchall()}
     db.close()
-    return {"enabled": settings.get("adsense_enabled","false") == "true",
-            "header_slot": settings.get("adsense_header",""),
-            "sidebar_slot": settings.get("adsense_sidebar",""),
-            "below_player_slot": settings.get("adsense_below_player","")}
+    return {
+        "enabled": settings.get("adsense_enabled","false") == "true",
+        "header_slot": settings.get("adsense_header",""),
+        "sidebar_slot": settings.get("adsense_sidebar",""),
+        "below_player_slot": settings.get("adsense_below_player","")
+    }
+
+# ── Favicon Route ──
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    fav_path = os.path.join(PUBLIC_DIR, "favicon.svg")
+    if os.path.exists(fav_path):
+        return FileResponse(fav_path, media_type="image/svg+xml")
+    return PlainTextResponse("", status_code=204)
 
 # ── WebSocket Chat (sanitized) ──
 chat_connections: list[dict] = []
@@ -482,12 +583,14 @@ async def websocket_chat(websocket: WebSocket):
                 recent.close()
                 await websocket.send_text(json.dumps({"type":"history","messages":list(reversed(msgs))}))
         if not user_info:
-            await websocket.close(code=4001); return
+            await websocket.close(code=4001)
+            return
         while True:
             raw = await websocket.receive_text()
             msg_data = json.loads(raw)
             text = sanitize(msg_data.get("message",""), 200)
-            if not text: continue
+            if not text:
+                continue
             now = time.time()
             if user_info["id"] in chat_rate and (now - chat_rate[user_info["id"]]) < CHAT_RATE_LIMIT:
                 await websocket.send_text(json.dumps({"type":"error","message":"Slow down! 1 msg per 3s"}))
@@ -497,14 +600,23 @@ async def websocket_chat(websocket: WebSocket):
             db = get_db()
             db.execute("INSERT INTO ChatMessages (user_id,username,message) VALUES (?,?,?)",
                        (user_info["id"], user_info["username"], text))
-            db.commit(); db.close()
-            broadcast = json.dumps({"type":"message","username":user_info["username"],
-                                    "tier":user_info["tier"],"message":text,
-                                    "created_at":datetime.utcnow().isoformat()})
-            for conn in chat_connections:
-                try: await conn["ws"].send_text(broadcast)
-                except: pass
+            db.commit()
+            db.close()
+            broadcast = json.dumps({
+                "type":"message",
+                "username":user_info["username"],
+                "tier":user_info["tier"],
+                "message":text,
+                "created_at":datetime.now(timezone.utc).isoformat()
+            })
+            for conn in list(chat_connections):
+                try:
+                    await conn["ws"].send_text(broadcast)
+                except Exception:
+                    pass
     except WebSocketDisconnect:
+        pass
+    except Exception:
         pass
     finally:
         chat_connections[:] = [c for c in chat_connections if c["ws"] != websocket]
@@ -526,17 +638,21 @@ async def send_chat_message(body: ChatInput, user=Depends(get_current_user)):
         raise HTTPException(429, "Rate limit: 1 message per 3 seconds")
     chat_rate[uid] = now
     text = sanitize(body.message, 200)
-    if not text: raise HTTPException(400, "Empty message after sanitization")
+    if not text:
+        raise HTTPException(400, "Empty message after sanitization")
     text = sanitize_profanity(text)
     db = get_db()
     db.execute("INSERT INTO ChatMessages (user_id,username,message) VALUES (?,?,?)",
                (uid, user["username"], text))
-    db.commit(); db.close()
+    db.commit()
+    db.close()
     return {"status": "sent"}
 
 # ── Static Files & SPA fallback ──
-app.mount("/", StaticFiles(directory="public", html=True), name="static")
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    uvicorn.run("main:app", host=host, port=port, reload=True)

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+*.db
+*.db-journal
+*.sqlite3
+
+# Node / Capacitor
+node_modules/
+android/
+.capacitor/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
