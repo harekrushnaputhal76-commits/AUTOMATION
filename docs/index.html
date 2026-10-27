@@ -327,15 +327,80 @@
       </div>
     </section>
 
-    <!-- Leaderboard View -->
+    <!-- Leaderboard View (100% Real Firestore Live Rankings & Player Standing Spotlight) -->
     <section id="view-leaderboard" class="view">
       <div class="section-header-row">
-        <h2 class="section-title">Global Leaderboard</h2>
-        <span class="season-pill">Season 1 • Live Updates</span>
+        <div>
+          <h2 class="section-title">Global Leaderboard & Rankings</h2>
+          <p class="section-subtitle">Real-time Firebase Firestore database rankings. Top players receive seasonal reward pool distributions.</p>
+        </div>
+        <div class="leaderboard-header-actions">
+          <button id="leaderboard-refresh-btn" class="btn-secondary btn-sm">🔄 Refresh Standings</button>
+          <span class="season-pill">Season 1 • Live Firestore Feed</span>
+        </div>
       </div>
-      <div class="leaderboard-podium" id="leaderboard-podium"></div>
+
+      <!-- Current Player Rank Spotlight Card ("Saw the player which a no") -->
+      <div class="user-rank-spotlight-card" id="user-rank-spotlight">
+        <div class="user-rank-badge-wrap">
+          <span class="user-rank-badge-lbl">Your Live Rank</span>
+          <div class="user-rank-number" id="user-rank-number">#1</div>
+        </div>
+        <div class="user-rank-info">
+          <div class="user-rank-avatar" id="user-rank-avatar">👤</div>
+          <div class="user-rank-meta">
+            <div class="user-rank-name-row">
+              <span class="user-rank-name" id="user-rank-name">Player</span>
+              <span class="user-rank-tag">You</span>
+            </div>
+            <div class="user-rank-sub">
+              <span id="user-rank-tier" class="tier-pill tier-gold">Gold Contender</span>
+              <span class="dot-sep">•</span>
+              <span id="user-rank-coins">0 Coins</span>
+              <span class="dot-sep">•</span>
+              <span id="user-rank-inr" class="inr-share-tag">~₹0.00 Value</span>
+            </div>
+          </div>
+        </div>
+        <div class="user-rank-status-box">
+          <span class="user-rank-status-title" id="user-rank-status-title">Active Competitor</span>
+          <span class="user-rank-status-desc" id="user-rank-status-desc">Play arcade games to increase your rank score!</span>
+        </div>
+      </div>
+
+      <!-- Top 3 Live Podium Cards -->
+      <div class="leaderboard-podium" id="leaderboard-podium">
+        <!-- Rendered dynamically from live Firestore data -->
+      </div>
+
+      <!-- Search & Tier Filter Controls -->
+      <div class="leaderboard-controls-row">
+        <div class="leaderboard-search-wrap">
+          <input type="text" id="leaderboard-search" placeholder="Search rankings by gamertag or UID...">
+        </div>
+        <div class="leaderboard-filter-pills" id="leaderboard-filters">
+          <button type="button" class="lb-filter-btn active" data-filter="all">All Ranks</button>
+          <button type="button" class="lb-filter-btn" data-filter="top10">Top 10</button>
+          <button type="button" class="lb-filter-btn" data-filter="master">Grand Master</button>
+          <button type="button" class="lb-filter-btn" data-filter="diamond">Diamond</button>
+          <button type="button" class="lb-filter-btn" data-filter="gold">Gold</button>
+          <button type="button" class="lb-filter-btn" data-filter="silver">Silver & Bronze</button>
+        </div>
+      </div>
+
+      <!-- Real Live Firestore Leaderboard Table -->
       <div class="leaderboard-table-wrap">
-        <div class="leaderboard-table" id="leaderboard-body"></div>
+        <div class="leaderboard-table-header">
+          <span class="th-rank">Rank</span>
+          <span class="th-player">Player / Gamertag</span>
+          <span class="th-coins">Coins</span>
+          <span class="th-inr">Est. Value (INR)</span>
+          <span class="th-tier">Tier</span>
+          <span class="th-status">Activity</span>
+        </div>
+        <div class="leaderboard-table" id="leaderboard-body">
+          <div class="leaderboard-loading">Querying live Firestore leaderboard...</div>
+        </div>
       </div>
     </section>
 

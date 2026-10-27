@@ -60,6 +60,9 @@
     user: null,
     pendingPhotoUrl: null,
     selectedAvatar: null,
+    leaderboardCache: [],
+    leaderboardFilter: "all",
+    leaderboardSearch: "",
     currentView: "discover",
     allGames: [],
     filteredGames: [],
@@ -726,7 +729,7 @@
     if(instDrawer) instDrawer.style.display = "none";
 
     if(name === "wallet") loadWallet();
-    if(name === "leaderboard") loadLeaderboardFallbackIfEmpty();
+    if(name === "leaderboard") { if(state.leaderboardCache && state.leaderboardCache.length > 0){ renderLeaderboardUI(state.leaderboardCache); } else { initLeaderboardRealtime(); } }
     if(name === "analytics") renderAnalytics();
     if(name === "profile") renderProfileView();
     if(name === "admin") {
@@ -994,123 +997,270 @@
   }
 
   // ── Real-Time Esports Leaderboard (Firebase Firestore onSnapshot) ──
+  // ── High-Speed Real-Time Firestore Leaderboard Engine ──
   function initLeaderboardRealtime(){
-    if(!db) {
-      loadLeaderboardFallbackIfEmpty();
+    if(!db){
+      renderLeaderboardWithLocalUserOnly();
       return;
     }
 
     try {
       if(state.firestoreUnsubLeaderboard) state.firestoreUnsubLeaderboard();
-      state.firestoreUnsubLeaderboard = db.collection("leaderboard")
+
+      // Query real Firestore users ordered by coins descending
+      state.firestoreUnsubLeaderboard = db.collection("users")
         .orderBy("coins", "desc")
-        .limit(25)
+        .limit(50)
         .onSnapshot(snapshot => {
           const list = [];
           snapshot.forEach(doc => {
-            list.push({ id: doc.id, ...doc.data() });
+            const d = doc.data();
+            if(d && !d.is_banned){
+              list.push({
+                uid: doc.id,
+                id: doc.id,
+                username: d.username || d.displayName || "Player",
+                avatar: d.avatar || "👤",
+                coins: typeof d.coins === "number" ? d.coins : 0,
+                is_guest: !!d.is_guest,
+                last_active: d.last_active || null
+              });
+            }
           });
-          if(list.length > 0){
-            renderLeaderboardList(list);
-          } else {
-            loadLeaderboardFallbackIfEmpty();
+
+          // Ensure current player is always present in ranking list
+          if(state.user){
+            const curIdx = list.findIndex(p => p.uid === state.user.uid || p.id === state.user.uid);
+            if(curIdx === -1){
+              list.push({
+                uid: state.user.uid,
+                id: state.user.uid,
+                username: state.user.username || "Player",
+                avatar: state.user.avatar || "👤",
+                coins: typeof state.user.coins === "number" ? state.user.coins : 0,
+                is_guest: !!state.user.is_guest
+              });
+              list.sort((a,b) => (b.coins || 0) - (a.coins || 0));
+            } else {
+              list[curIdx].coins = typeof state.user.coins === "number" ? state.user.coins : list[curIdx].coins;
+              list[curIdx].avatar = state.user.avatar || list[curIdx].avatar;
+              list[curIdx].username = state.user.username || list[curIdx].username;
+              list.sort((a,b) => (b.coins || 0) - (a.coins || 0));
+            }
           }
+
+          state.leaderboardCache = list;
+          renderLeaderboardUI(list);
         }, err => {
-          console.warn("Leaderboard onSnapshot fallback:", err.message);
-          loadLeaderboardFallbackIfEmpty();
+          console.warn("Firestore leaderboard snapshot error, falling back:", err);
+          renderLeaderboardWithLocalUserOnly();
         });
     } catch(e){
-      loadLeaderboardFallbackIfEmpty();
+      console.warn("Firestore leaderboard error:", e);
+      renderLeaderboardWithLocalUserOnly();
     }
   }
 
-  function renderLeaderboardList(list){
+  function renderLeaderboardWithLocalUserOnly(){
+    const list = [];
+    if(state.user){
+      list.push({
+        uid: state.user.uid,
+        id: state.user.uid,
+        username: state.user.username || "Player",
+        avatar: state.user.avatar || "👤",
+        coins: typeof state.user.coins === "number" ? state.user.coins : 0,
+        is_guest: !!state.user.is_guest
+      });
+    }
+    state.leaderboardCache = list;
+    renderLeaderboardUI(list);
+  }
+
+  function renderLeaderboardUI(list){
+    // Calculate Ranks & Tiers
     list.forEach((p, idx) => {
       p.rank = idx + 1;
-      p.hours = p.hours || Math.max(0.5, ((p.coins || 100) / 120)).toFixed(1);
       p.tier = p.coins >= 8000 ? "Grand Master" : p.coins >= 4000 ? "Diamond" : p.coins >= 2000 ? "Gold" : p.coins >= 1000 ? "Silver" : "Bronze";
+      p.inrValue = (p.coins / COINS_PER_INR).toFixed(2);
     });
 
-    // Render Top 3 Podium Cards
-    const podium = $("#leaderboard-podium");
-    if(podium){
-      podium.innerHTML = "";
-      const top3 = list.slice(0, 3);
-      const podiumMeta = [
-        { rank: 1, label: "Champion", icon: "👑", cls: "rank-1" },
-        { rank: 2, label: "Gold Contender", icon: "🥈", cls: "rank-2" },
-        { rank: 3, label: "3rd Place", icon: "🥉", cls: "rank-3" }
-      ];
+    // 1. Render Current Player Rank Spotlight Card ("Saw the player which a no")
+    renderPlayerRankSpotlight(list);
 
-      top3.forEach((p, idx) => {
-        const meta = podiumMeta[idx] || podiumMeta[0];
-        const card = document.createElement("div");
-        card.className = `podium-card ${meta.cls}`;
-        card.innerHTML = `
-          <div class="podium-crown">${meta.icon}</div>
-          <div class="podium-name">${escapeHtml(p.username || "Player")}</div>
-          <div class="podium-coins">${(p.coins || 0).toLocaleString()} ⚡</div>
-          <span class="podium-tier tier-${meta.cls}">${meta.label}</span>
-          <span style="font-size:0.78rem; color:var(--text-muted); font-family:var(--font-mono);">Est. Pool Share: ~₹${((p.coins||0) / COINS_PER_INR * 0.1).toFixed(2)}</span>
-        `;
-        podium.appendChild(card);
-      });
+    // 2. Render Top 3 Live Podium Cards
+    renderLeaderboardPodium(list);
+
+    // 3. Render Leaderboard Table with Filters
+    applyLeaderboardFiltersAndRender();
+  }
+
+  function renderPlayerRankSpotlight(list){
+    const spotlightCard = $("#user-rank-spotlight");
+    if(!spotlightCard) return;
+
+    if(!state.user){
+      spotlightCard.style.display = "none";
+      return;
+    }
+    spotlightCard.style.display = "flex";
+
+    const userIdx = list.findIndex(p => p.uid === state.user.uid || p.id === state.user.uid);
+    const userRank = userIdx !== -1 ? userIdx + 1 : 1;
+    const userCoins = typeof state.user.coins === "number" ? state.user.coins : 0;
+    const userTier = userCoins >= 8000 ? "Grand Master" : userCoins >= 4000 ? "Diamond" : userCoins >= 2000 ? "Gold" : userCoins >= 1000 ? "Silver" : "Bronze";
+    const userInr = (userCoins / COINS_PER_INR).toFixed(2);
+
+    // Rank Number Badge
+    const rankNumEl = $("#user-rank-number");
+    if(rankNumEl){
+      rankNumEl.textContent = `#${userRank}`;
+      rankNumEl.className = "user-rank-number " + (userRank === 1 ? "rank-gold" : userRank === 2 ? "rank-silver" : userRank === 3 ? "rank-bronze" : "");
     }
 
-    // Render Leaderboard Rows
-    const body = $("#leaderboard-body");
-    if(body){
-      body.innerHTML = "";
-      const frag = document.createDocumentFragment();
-      list.forEach(p => {
-        const isCurUser = state.user && (p.uid === state.user.uid || p.id === state.user.uid);
-        const tierCls = p.tier.toLowerCase().includes("master") ? "tier-master" : p.tier.toLowerCase().includes("diamond") ? "tier-diamond" : p.tier.toLowerCase().includes("gold") ? "tier-gold" : p.tier.toLowerCase().includes("silver") ? "tier-silver" : "tier-bronze";
-        const row = document.createElement("div");
-        row.className = "lb-row" + (isCurUser ? " lb-highlight" : "");
-        row.innerHTML = `
-          <span class="lb-rank">#${p.rank}</span>
-          <span class="lb-name">${escapeHtml(p.username || "Player")}${isCurUser ? ' <strong style="color:var(--neon-cyan);">(You)</strong>' : ''}</span>
-          <span class="lb-coins">${(p.coins || 0).toLocaleString()} ⚡</span>
-          <span class="lb-hours">${p.hours || 1}h</span>
-          <span class="lb-tier ${tierCls}">${escapeHtml(p.tier)}</span>
-          <span class="lb-reward">~₹${((p.coins || 0) / COINS_PER_INR * 0.1).toFixed(2)}</span>
-        `;
-        frag.appendChild(row);
-      });
-      body.appendChild(frag);
+    // Avatar
+    const avEl = $("#user-rank-avatar");
+    if(avEl){
+      const av = state.user.avatar || "👤";
+      if(av.startsWith("data:image/") || av.startsWith("http://") || av.startsWith("https://")){
+        avEl.innerHTML = `<img src="${escapeHtml(av)}" alt="Avatar">`;
+      } else {
+        avEl.innerHTML = escapeHtml(av);
+      }
+    }
+
+    // Name & Tier
+    const nameEl = $("#user-rank-name");
+    if(nameEl) nameEl.textContent = state.user.username || "Player";
+
+    const tierEl = $("#user-rank-tier");
+    if(tierEl){
+      tierEl.textContent = userTier;
+      tierEl.className = `tier-pill tier-${userTier.toLowerCase().replace(" ", "-")}`;
+    }
+
+    // Coins & INR Value
+    const coinsEl = $("#user-rank-coins");
+    if(coinsEl) coinsEl.textContent = `${userCoins.toLocaleString()} Coins`;
+
+    const inrEl = $("#user-rank-inr");
+    if(inrEl) inrEl.textContent = `~₹${userInr} Value`;
+
+    // Motivational Status Message
+    const titleEl = $("#user-rank-status-title");
+    const descEl = $("#user-rank-status-desc");
+    if(titleEl && descEl){
+      if(userRank === 1){
+        titleEl.textContent = "👑 Reigning Champion";
+        descEl.textContent = "You hold the #1 rank on the global leaderboard!";
+      } else if(userRank <= 3){
+        const aheadCoins = list[userRank - 2] ? (list[userRank - 2].coins - userCoins + 1) : 10;
+        titleEl.textContent = userRank === 2 ? "🥈 2nd Place Podium" : "🥉 3rd Place Podium";
+        descEl.textContent = `Need ${aheadCoins.toLocaleString()} more coins to overtake #${userRank - 1}!`;
+      } else {
+        const aheadCoins = list[userRank - 2] ? (list[userRank - 2].coins - userCoins + 1) : 25;
+        titleEl.textContent = `⚡ Global Rank #${userRank}`;
+        descEl.textContent = `Earn ${aheadCoins.toLocaleString()} coins to move up to rank #${userRank - 1}.`;
+      }
     }
   }
 
-  function loadLeaderboardFallbackIfEmpty(){
-    const fallbackRoster = [
-      { rank: 1, username: "AlexRider", coins: 8450, hours: 38.5, tier: "Grand Master", avatar: "⚡" },
-      { rank: 2, username: "NovaStrike", coins: 6920, hours: 31.2, tier: "Diamond", avatar: "🔥" },
-      { rank: 3, username: "PixelKnight", coins: 5210, hours: 24.8, tier: "Diamond", avatar: "🎯" },
-      { rank: 4, username: "ShadowHunter", coins: 3950, hours: 18.2, tier: "Gold", avatar: "👾" },
-      { rank: 5, username: "Jordan_K", coins: 2840, hours: 14.5, tier: "Gold", avatar: "🤖" },
-      { rank: 6, username: "EmmaGamer", coins: 2100, hours: 11.0, tier: "Gold", avatar: "🕹️" },
-      { rank: 7, username: "RyanFox", coins: 1650, hours: 8.4, tier: "Bronze", avatar: "🦊" },
-      { rank: 8, username: "Lucas_99", coins: 1220, hours: 6.2, tier: "Bronze", avatar: "⚔️" },
-      { rank: 9, username: "Sam_Pro", coins: 980, hours: 4.8, tier: "Bronze", avatar: "🛡️" }
+  function renderLeaderboardPodium(list){
+    const podium = $("#leaderboard-podium");
+    if(!podium) return;
+    podium.innerHTML = "";
+
+    const top3 = list.slice(0, 3);
+    if(top3.length === 0){
+      podium.style.display = "none";
+      return;
+    }
+    podium.style.display = "grid";
+
+    const podiumMeta = [
+      { rank: 1, label: "Champion", icon: "👑", cls: "rank-1" },
+      { rank: 2, label: "Gold Contender", icon: "🥈", cls: "rank-2" },
+      { rank: 3, label: "3rd Place", icon: "🥉", cls: "rank-3" }
     ];
 
-    if(state.user){
-      const userCoins = typeof state.user.coins === "number" ? state.user.coins : 100;
-      fallbackRoster.push({
-        rank: 10,
-        username: state.user.username + " (You)",
-        coins: userCoins,
-        hours: Math.max(0.5, (userCoins / 120)).toFixed(1),
-        tier: userCoins >= 8000 ? "Grand Master" : userCoins >= 4000 ? "Gold" : userCoins >= 1000 ? "Silver" : "Bronze",
-        avatar: state.user.avatar || "⚡",
-        uid: state.user.uid
-      });
-      fallbackRoster.sort((a,b) => (b.coins || 0) - (a.coins || 0));
-    }
-    renderLeaderboardList(fallbackRoster);
+    top3.forEach((p, idx) => {
+      const meta = podiumMeta[idx] || podiumMeta[0];
+      const isCur = state.user && (p.uid === state.user.uid || p.id === state.user.uid);
+      const card = document.createElement("div");
+      card.className = `podium-card ${meta.cls}` + (isCur ? " user-highlight" : "");
+      card.innerHTML = `
+        <div class="podium-crown">${meta.icon}</div>
+        <div style="margin-bottom:4px;">${getAvatarMarkup(p.avatar, "podium")}</div>
+        <div class="podium-name">${escapeHtml(p.username || "Player")}${isCur ? ' <span class="user-rank-tag">You</span>' : ''}</div>
+        <div class="podium-coins">${(p.coins || 0).toLocaleString()} 🪙</div>
+        <span class="podium-tier tier-${meta.cls}">${meta.label}</span>
+        <span style="font-size:0.78rem; color:var(--text-muted); font-family:var(--font-mono);">Est. Pool Share: ~₹${((p.coins||0) / COINS_PER_INR * 0.1).toFixed(2)}</span>
+      `;
+      podium.appendChild(card);
+    });
   }
 
-  // ── Cloud Wallet, Bonus & Instant Currency Converter ──
+  function applyLeaderboardFiltersAndRender(){
+    const body = $("#leaderboard-body");
+    if(!body) return;
+
+    let list = (state.leaderboardCache || []).slice();
+
+    // 1. Filter by Tier or Top10
+    const filter = state.leaderboardFilter || "all";
+    if(filter === "top10"){
+      list = list.slice(0, 10);
+    } else if(filter === "master"){
+      list = list.filter(p => p.coins >= 8000);
+    } else if(filter === "diamond"){
+      list = list.filter(p => p.coins >= 4000 && p.coins < 8000);
+    } else if(filter === "gold"){
+      list = list.filter(p => p.coins >= 2000 && p.coins < 4000);
+    } else if(filter === "silver"){
+      list = list.filter(p => p.coins < 2000);
+    }
+
+    // 2. Filter by Search Query
+    const search = (state.leaderboardSearch || "").toLowerCase().trim();
+    if(search){
+      list = list.filter(p => 
+        (p.username && p.username.toLowerCase().includes(search)) ||
+        (p.uid && p.uid.toLowerCase().includes(search))
+      );
+    }
+
+    body.innerHTML = "";
+
+    if(list.length === 0){
+      body.innerHTML = `<div class="leaderboard-empty-state">No matching players found on the leaderboard.</div>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(p => {
+      const isCurUser = state.user && (p.uid === state.user.uid || p.id === state.user.uid);
+      const tierCls = (p.tier || "Bronze").toLowerCase().replace(" ", "-");
+      const rankBadgeCls = p.rank === 1 ? "top-1" : p.rank === 2 ? "top-2" : p.rank === 3 ? "top-3" : "";
+
+      const row = document.createElement("div");
+      row.className = "lb-row" + (isCurUser ? " user-row lb-highlight" : "");
+      row.innerHTML = `
+        <span class="lb-rank-badge ${rankBadgeCls}">#${p.rank}</span>
+        <div class="lb-player-cell">
+          ${getAvatarMarkup(p.avatar, "lb")}
+          <span class="lb-player-name">${escapeHtml(p.username || "Player")}${isCurUser ? ' <span class="user-rank-tag">You</span>' : ''}</span>
+        </div>
+        <span class="lb-coins">${(p.coins || 0).toLocaleString()} 🪙</span>
+        <span class="lb-value-cell">₹${((p.coins || 0) / COINS_PER_INR).toFixed(2)}</span>
+        <span class="lb-tier tier-${tierCls}">${escapeHtml(p.tier || "Bronze")}</span>
+        <span class="lb-hours" style="font-size:0.8rem; color:var(--text-muted);">${p.is_guest ? 'Guest' : 'Verified'}</span>
+      `;
+      frag.appendChild(row);
+    });
+
+    body.appendChild(frag);
+  }
+
   function loadWallet(){
     const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
     updateCoinsDisplay(coins);
@@ -1423,6 +1573,35 @@
         localStorage.removeItem("nx_wallet_logs");
         loadWallet();
         showToast("Transaction history cleared.", "🗑️");
+      });
+    }
+
+    
+    // Leaderboard Search Filter
+    const lbSearch = $("#leaderboard-search");
+    if(lbSearch){
+      lbSearch.addEventListener("input", (e) => {
+        state.leaderboardSearch = e.target.value;
+        applyLeaderboardFiltersAndRender();
+      });
+    }
+
+    // Leaderboard Filter Pills
+    $$(".lb-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $$(".lb-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.leaderboardFilter = btn.dataset.filter || "all";
+        applyLeaderboardFiltersAndRender();
+      });
+    });
+
+    // Leaderboard Refresh Button
+    const lbRefresh = $("#leaderboard-refresh-btn");
+    if(lbRefresh){
+      lbRefresh.addEventListener("click", () => {
+        initLeaderboardRealtime();
+        showToast("Leaderboard refreshed from live Firestore.", "🔄");
       });
     }
 
