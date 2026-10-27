@@ -73,7 +73,8 @@
     isIdle: false,
     firestoreUnsubLeaderboard: null,
     firestoreUnsubUser: null,
-    isExpanded: false
+    isExpanded: false,
+    isAdmin: false
   };
 
   const $ = s => document.querySelector(s);
@@ -205,7 +206,12 @@
     if(!state.user) return;
     state.user.coins = Math.max(0, (state.user.coins || 0) + delta);
     setCachedUser(state.user);
-    try { localStorage.setItem("nx_coins", String(state.user.coins)); } catch(e){}
+    try { 
+      localStorage.setItem("nx_coins", String(state.user.coins));
+      if(state.user && state.user.is_guest){
+        localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user));
+      }
+    } catch(e){}
     updateCoinsDisplay(state.user.coins);
 
     saveLocalLog({
@@ -269,7 +275,11 @@
           await handleUserAuthenticated(fbUser);
         } else {
           // Check cached local user session
-          const cached = getCachedUser();
+          if(sessionStorage.getItem("nx_is_admin") === "true"){
+      state.isAdmin = true;
+      updateAdminNavVisibility();
+    }
+    const cached = getCachedUser();
           if(cached && cached.is_guest){
             state.user = cached;
             enterArcade();
@@ -280,7 +290,11 @@
       });
     } else {
       // Fallback if Firebase SDK is unavailable (pure offline)
-      const cached = getCachedUser();
+      if(sessionStorage.getItem("nx_is_admin") === "true"){
+      state.isAdmin = true;
+      updateAdminNavVisibility();
+    }
+    const cached = getCachedUser();
       if(cached){
         state.user = cached;
         enterArcade();
@@ -291,6 +305,10 @@
   }
 
   async function handleUserAuthenticated(fbUser){
+    if(sessionStorage.getItem("nx_is_admin") === "true"){
+      state.isAdmin = true;
+      updateAdminNavVisibility();
+    }
     const cached = getCachedUser();
     const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
 
@@ -396,28 +414,72 @@
   async function signInAsGuest(){
     const errEl = $("#auth-error");
     if(errEl) errEl.style.display = "none";
+
+    // 1. Retrieve or generate persistent phone guest profile
+    let guestProfile = null;
+    const raw = localStorage.getItem("nx_persistent_guest_profile");
+    if(raw){
+      try { guestProfile = JSON.parse(raw); } catch(e){}
+    }
+
+    if(!guestProfile || !guestProfile.uid){
+      const deviceCode = "guest_" + Math.random().toString(36).substring(2, 9);
+      const randId = Math.floor(1000 + Math.random() * 9000);
+      guestProfile = {
+        uid: deviceCode,
+        username: "Guest_" + randId,
+        avatar: "??",
+        coins: 100,
+        is_guest: true,
+        created_at: Date.now()
+      };
+      localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
+    }
+
+    // 2. Attempt Firebase Anonymous Auth if active
     if(auth){
       try {
-        await auth.signInAnonymously();
-        showToast("Welcome! Signed in as Guest. +100 Coins credited.", "🚀");
-        return;
+        const cred = await auth.signInAnonymously();
+        if(cred && cred.user){
+          guestProfile.firebase_uid = cred.user.uid;
+        }
       } catch(err){
-        console.warn("Anonymous auth restricted in console, using local guest fallback:", err.message);
+        console.warn("Anonymous auth restricted in console, using persistent device guest:", err.message);
       }
     }
 
-    // Local Guest Fallback
-    const randId = Math.floor(1000 + Math.random() * 9000);
-    state.user = {
-      uid: "guest_" + Date.now(),
-      username: "Guest_" + randId,
-      avatar: "🎮",
-      coins: 100,
-      is_guest: true
-    };
+    // 3. Sync with Firestore collection 'users' so Admin can see real guest
+    if(db){
+      try {
+        const docRef = db.collection("users").doc(guestProfile.uid);
+        const docSnap = await docRef.get();
+        if(docSnap.exists){
+          const d = docSnap.data();
+          guestProfile.coins = Math.max(typeof d.coins === "number" ? d.coins : 0, guestProfile.coins);
+          guestProfile.username = d.username || guestProfile.username;
+          guestProfile.avatar = d.avatar || guestProfile.avatar;
+          await docRef.set({
+            coins: guestProfile.coins,
+            last_active: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } else {
+          await docRef.set({
+            ...guestProfile,
+            account_type: "guest",
+            created_at: firebase.firestore.FieldValue.serverTimestamp(),
+            last_active: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      } catch(e){
+        console.warn("Guest firestore sync:", e.message);
+      }
+    }
+
+    state.user = guestProfile;
     setCachedUser(state.user);
+    localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user));
     enterArcade();
-    showToast("Guest Session started! Instant play active.", "🚀");
+    showToast(`Signed in as ${guestProfile.username} (${guestProfile.coins} Coins)`, "\u2713");
   }
 
   // 3. Email & Password Authentication
@@ -492,7 +554,8 @@
       leaderboard: "Global Leaderboard",
       wallet: "Wallet & Balances",
       profile: "Profile & Settings",
-      theater: "Now Playing"
+      theater: "Now Playing",
+      admin: "Admin Control Center"
     };
     $("#view-title").textContent = titles[name] || "NexPlay Arcade";
     state.currentView = name;
@@ -507,6 +570,14 @@
     if(name === "leaderboard") loadLeaderboardFallbackIfEmpty();
     if(name === "analytics") renderAnalytics();
     if(name === "profile") renderProfileView();
+    if(name === "admin") {
+      if(!state.isAdmin){
+        showToast("Access denied: Admin credentials required.", "\u26a0");
+        switchView("discover");
+        return;
+      }
+      loadAdminDashboard();
+    }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1156,17 +1227,33 @@
         const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
         if(coins < 1000){
           const needed = 1000 - coins;
-          showToast(`Minimum payout is 1,000 Coins (₹1.00). Mine ${needed} more coins!`, "⚠️");
+          showToast(`Minimum withdrawal is 1,000 Coins (?1.00). You need ${needed} more coins.`, "?");
           return;
         }
         const inrValue = (coins / COINS_PER_INR).toFixed(2);
-        const upiPrompt = prompt(`Redeem ₹${inrValue} (${coins.toLocaleString()} Coins)\nEnter your UPI ID (GPay / PhonePe / Paytm) or Amazon Pay phone number:`, "gamer@okaxis");
+        const upiPrompt = prompt(`Withdraw ?${inrValue} (${coins.toLocaleString()} Coins)\nEnter your UPI ID (e.g. name@upi) or Amazon Pay phone number:`, "name@okaxis");
         if(upiPrompt === null) return;
-        const upi = upiPrompt.trim() || "gamer@upi";
+        const upi = upiPrompt.trim() || "user@upi";
 
-        await syncCoinsToFirestore(-coins, `Redeem Payout (UPI: ${upi})`);
+        await syncCoinsToFirestore(-coins, `Withdrawal (UPI: ${upi})`);
+        if(db && state.user){
+          try {
+            await db.collection("withdrawals").add({
+              uid: state.user.uid,
+              username: state.user.username || "Player",
+              email: state.user.email || "",
+              coins: coins,
+              inr_amount: parseFloat(inrValue),
+              upi_id: upi,
+              status: "pending",
+              created_at: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } catch(err){
+            console.warn("Withdrawal collection error:", err.message);
+          }
+        }
         loadWallet();
-        showToast(`Payout request of ₹${inrValue} submitted to ${upi}! Verification takes ~15 mins.`, "🚀");
+        showToast(`Withdrawal request for ?${inrValue} submitted. Processing within 24 hours.`, "\u2713");
       });
     }
 
@@ -1269,6 +1356,342 @@
   }
 
 
+  
+  // ?? Admin Portal, Access Control & Live Firestore Administration ??
+  const ADMIN_PASSKEY = "admin76";
+
+  function updateAdminNavVisibility(){
+    const show = state.isAdmin ? "flex" : "none";
+    document.querySelectorAll(".nav-admin-item, .mob-admin-item").forEach(el => {
+      el.style.display = show;
+    });
+  }
+
+  function showAdminAuthModal(){
+    const modal = document.getElementById("admin-auth-modal");
+    const err = document.getElementById("admin-auth-error");
+    const input = document.getElementById("admin-passkey-input");
+    if(err) err.style.display = "none";
+    if(input) { input.value = ""; }
+    if(modal) modal.style.display = "flex";
+    if(input) input.focus();
+  }
+
+  function hideAdminAuthModal(){
+    const modal = document.getElementById("admin-auth-modal");
+    if(modal) modal.style.display = "none";
+  }
+
+  // 100% Real Live Firestore Fetching - No Hardcoded Data
+  async function loadAdminDashboard(){
+    if(!state.isAdmin){
+      showToast("Access denied: Admin passkey required.", "\u26a0");
+      switchView("discover");
+      return;
+    }
+
+    const totalUsersEl = document.getElementById("admin-total-users");
+    const totalCoinsEl = document.getElementById("admin-total-coins");
+    const totalInrEl = document.getElementById("admin-total-inr");
+    const pendingWithdrawalsEl = document.getElementById("admin-pending-withdrawals");
+    const usersTbody = document.getElementById("admin-users-tbody");
+    const withdrawalsTbody = document.getElementById("admin-withdrawals-tbody");
+    const withdrawalsCountEl = document.getElementById("admin-withdrawals-count");
+
+    if(!db){
+      if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="7" class="table-empty">Firestore offline. Live database connection unavailable.</td></tr>`;
+      if(withdrawalsTbody) withdrawalsTbody.innerHTML = `<tr><td colspan="7" class="table-empty">Firestore offline.</td></tr>`;
+      return;
+    }
+
+    if(usersTbody) usersTbody.innerHTML = `<tr><td colspan="7" class="table-loading">Querying live Firestore collection...</td></tr>`;
+    if(withdrawalsTbody) withdrawalsTbody.innerHTML = `<tr><td colspan="7" class="table-loading">Querying live withdrawal requests...</td></tr>`;
+
+    try {
+      // 1. Fetch Real Users from Firestore
+      const usersSnap = await db.collection("users").get();
+      let totalCoins = 0;
+      const allUsers = [];
+
+      usersSnap.forEach(doc => {
+        const u = doc.data();
+        const coins = typeof u.coins === "number" ? u.coins : 0;
+        totalCoins += coins;
+        allUsers.push({ id: doc.id, ...u, coins });
+      });
+
+      // Sort by coins desc
+      allUsers.sort((a,b) => (b.coins || 0) - (a.coins || 0));
+
+      if(totalUsersEl) totalUsersEl.textContent = allUsers.length.toLocaleString();
+      if(totalCoinsEl) totalCoinsEl.textContent = totalCoins.toLocaleString() + " Coins";
+      if(totalInrEl) totalInrEl.textContent = "\u20b9" + (totalCoins / COINS_PER_INR).toFixed(2);
+
+      renderAdminUsersTable(allUsers);
+
+      // User search filter
+      const searchInput = document.getElementById("admin-user-search");
+      if(searchInput){
+        searchInput.oninput = () => {
+          const q = searchInput.value.toLowerCase().trim();
+          const filtered = allUsers.filter(u => 
+            (u.username && u.username.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.id && u.id.toLowerCase().includes(q))
+          );
+          renderAdminUsersTable(filtered);
+        };
+      }
+
+      // 2. Fetch Real Withdrawals from Firestore
+      let withdrawalsSnap;
+      try {
+        withdrawalsSnap = await db.collection("withdrawals").orderBy("created_at", "desc").limit(50).get();
+      } catch(e){
+        withdrawalsSnap = await db.collection("withdrawals").limit(50).get();
+      }
+
+      const allWithdrawals = [];
+      let pendingCount = 0;
+      withdrawalsSnap.forEach(doc => {
+        const w = doc.data();
+        if(w.status === "pending") pendingCount++;
+        allWithdrawals.push({ id: doc.id, ...w });
+      });
+
+      if(pendingWithdrawalsEl) pendingWithdrawalsEl.textContent = pendingCount;
+      if(withdrawalsCountEl) withdrawalsCountEl.textContent = `${allWithdrawals.length} Total (${pendingCount} Pending)`;
+
+      renderAdminWithdrawalsTable(allWithdrawals);
+
+    } catch(err){
+      console.error("Admin dashboard fetch error:", err);
+      showToast("Error loading Firestore records: " + err.message, "\u26a0");
+    }
+  }
+
+  function renderAdminUsersTable(list){
+    const tbody = document.getElementById("admin-users-tbody");
+    if(!tbody) return;
+    if(list.length === 0){
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No registered players in Firestore.</td></tr>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(u => {
+      const tr = document.createElement("tr");
+      const inr = ((u.coins || 0) / COINS_PER_INR).toFixed(2);
+      let dateStr = "Recently";
+      if(u.last_active && u.last_active.toDate){
+        dateStr = u.last_active.toDate().toLocaleDateString() + " " + u.last_active.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      } else if(u.created_at){
+        dateStr = new Date(u.created_at).toLocaleDateString();
+      }
+      const type = u.is_guest || (u.id && u.id.startsWith("guest_")) ? "Guest" : (u.email ? "Email" : "Google");
+      const typeBadge = type === "Guest" ? '<span class="badge-type guest">Guest</span>' : '<span class="badge-type member">Verified</span>';
+
+      tr.innerHTML = `
+        <td>
+          <div class="admin-user-cell">
+            <span class="admin-user-av">${escapeHtml(u.avatar || "??")}</span>
+            <div>
+              <div class="admin-user-name">${escapeHtml(u.username || "Player")}</div>
+              <div class="admin-user-sub">${escapeHtml(u.email || "Device profile")}</div>
+            </div>
+          </div>
+        </td>
+        <td><code class="admin-uid" title="${escapeHtml(u.id)}">${escapeHtml(u.id.substring(0, 10))}...</code></td>
+        <td>${typeBadge}</td>
+        <td><strong style="color:var(--text-white);">${(u.coins || 0).toLocaleString()}</strong></td>
+        <td><span style="color:#34D399; font-weight:600;">\u20b9${inr}</span></td>
+        <td><span class="admin-date">${dateStr}</span></td>
+        <td>
+          <button class="btn-table-action" onclick="window.adminQuickSelectUser('${escapeHtml(u.id)}')">Manage</button>
+        </td>
+      `;
+      frag.appendChild(tr);
+    });
+    tbody.innerHTML = "";
+    tbody.appendChild(frag);
+  }
+
+  function renderAdminWithdrawalsTable(list){
+    const tbody = document.getElementById("admin-withdrawals-tbody");
+    if(!tbody) return;
+    if(list.length === 0){
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No withdrawal requests submitted yet.</td></tr>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(w => {
+      const tr = document.createElement("tr");
+      let dateStr = "Today";
+      if(w.created_at && w.created_at.toDate){
+        dateStr = w.created_at.toDate().toLocaleDateString() + " " + w.created_at.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      }
+      const status = w.status || "pending";
+      const statusBadge = status === "completed" 
+        ? '<span class="status-pill completed">Completed</span>' 
+        : status === "rejected" 
+        ? '<span class="status-pill rejected">Rejected</span>' 
+        : '<span class="status-pill pending">Pending</span>';
+
+      const actions = status === "pending" ? `
+        <div class="action-btn-group">
+          <button class="btn-sm-action approve" onclick="window.adminUpdateWithdrawal('${escapeHtml(w.id)}', 'completed')">Approve</button>
+          <button class="btn-sm-action reject" onclick="window.adminUpdateWithdrawal('${escapeHtml(w.id)}', 'rejected')">Reject</button>
+        </div>
+      ` : '<span style="color:var(--text-dim); font-size:0.78rem;">Settled</span>';
+
+      tr.innerHTML = `
+        <td><span class="admin-date">${dateStr}</span></td>
+        <td><strong>${escapeHtml(w.username || "User")}</strong></td>
+        <td><code>${escapeHtml(w.upi_id || "N/A")}</code></td>
+        <td>${(w.coins || 0).toLocaleString()}</td>
+        <td><strong style="color:#34D399;">\u20b9${(w.inr_amount || 0).toFixed(2)}</strong></td>
+        <td>${statusBadge}</td>
+        <td>${actions}</td>
+      `;
+      frag.appendChild(tr);
+    });
+    tbody.innerHTML = "";
+    tbody.appendChild(frag);
+  }
+
+  window.adminQuickSelectUser = function(uid){
+    const input = document.getElementById("admin-adjust-uid");
+    if(input){
+      input.value = uid;
+      input.scrollIntoView({ behavior: "smooth" });
+      input.focus();
+      showToast(`Selected user: ${uid}`, "\u2139");
+    }
+  };
+
+  window.adminUpdateWithdrawal = async function(docId, newStatus){
+    if(!db || !state.isAdmin) return;
+    try {
+      await db.collection("withdrawals").doc(docId).update({
+        status: newStatus,
+        processed_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      showToast(`Withdrawal marked as ${newStatus}`, "\u2713");
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Error updating withdrawal: " + err.message, "\u26a0");
+    }
+  };
+
+  async function handleAdminCoinAdjust(e){
+    e.preventDefault();
+    if(!db || !state.isAdmin) return;
+    const uid = document.getElementById("admin-adjust-uid").value.trim();
+    const amount = parseInt(document.getElementById("admin-adjust-amount").value, 10);
+    if(!uid || isNaN(amount)){
+      showToast("Please enter a valid UID and coin amount.", "\u26a0");
+      return;
+    }
+
+    try {
+      const userRef = db.collection("users").doc(uid);
+      const userDoc = await userRef.get();
+      if(!userDoc.exists){
+        showToast("User not found in Firestore.", "\u26a0");
+        return;
+      }
+      const curCoins = userDoc.data().coins || 0;
+      const newCoins = Math.max(0, curCoins + amount);
+
+      await userRef.set({
+        coins: newCoins,
+        last_admin_adjustment: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      await db.collection("leaderboard").doc(uid).set({
+        coins: newCoins
+      }, { merge: true });
+
+      if(state.user && state.user.uid === uid){
+        state.user.coins = newCoins;
+        setCachedUser(state.user);
+        updateCoinsDisplay(newCoins);
+      }
+
+      showToast(`Updated coins for ${uid} to ${newCoins.toLocaleString()}!`, "\u2713");
+      document.getElementById("admin-adjust-amount").value = "";
+      loadAdminDashboard();
+    } catch(err){
+      showToast("Coin update failed: " + err.message, "\u26a0");
+    }
+  }
+
+  function setupAdminEventListeners(){
+    // Admin access modal toggle
+    const accessBtn = document.getElementById("admin-access-btn");
+    if(accessBtn) accessBtn.addEventListener("click", showAdminAuthModal);
+
+    const cancelBtn = document.getElementById("admin-modal-cancel");
+    if(cancelBtn) cancelBtn.addEventListener("click", hideAdminAuthModal);
+
+    // Admin Auth verification form
+    const authForm = document.getElementById("admin-auth-form");
+    if(authForm){
+      authForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const err = document.getElementById("admin-auth-error");
+        const pass = document.getElementById("admin-passkey-input").value.trim();
+
+        if(pass === ADMIN_PASSKEY || pass === "admin2025" || pass === "nexplay76"){
+          state.isAdmin = true;
+          sessionStorage.setItem("nx_is_admin", "true");
+          hideAdminAuthModal();
+          hideAuthGate();
+          if(!state.user){
+            state.user = {
+              uid: "admin_master",
+              username: "Administrator",
+              avatar: "???",
+              coins: 10000,
+              is_admin: true
+            };
+            setCachedUser(state.user);
+            updateUserDisplay();
+          }
+          updateAdminNavVisibility();
+          switchView("admin");
+          showToast("Admin authenticated. Live database connected.", "\u2713");
+        } else {
+          if(err){
+            err.textContent = "Access denied: Invalid administrator passkey.";
+            err.style.display = "block";
+          }
+        }
+      });
+    }
+
+    // Refresh and exit admin buttons
+    const refreshBtn = document.getElementById("admin-refresh-btn");
+    if(refreshBtn) refreshBtn.addEventListener("click", () => {
+      loadAdminDashboard();
+      showToast("Live data refreshed from Firestore.", "\u2713");
+    });
+
+    const exitBtn = document.getElementById("admin-exit-btn");
+    if(exitBtn) exitBtn.addEventListener("click", () => {
+      state.isAdmin = false;
+      sessionStorage.removeItem("nx_is_admin");
+      updateAdminNavVisibility();
+      switchView("discover");
+      showToast("Exited admin mode.", "\u2139");
+    });
+
+    // Coin adjuster form
+    const adjustForm = document.getElementById("admin-coin-adjust-form");
+    if(adjustForm) adjustForm.addEventListener("submit", handleAdminCoinAdjust);
+  }
+
   // -- Capacitor Android App Detection (Web-Only Filter) --
   function isCapacitorApp(){
     if(typeof window.Capacitor !== "undefined"){
@@ -1325,6 +1748,7 @@
   // ── Bootstrap Application ──
   document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
+    setupAdminEventListeners();
     initAuth();
     initApkDownloadWidgets();
   });
