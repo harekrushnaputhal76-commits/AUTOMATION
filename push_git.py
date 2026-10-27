@@ -17,9 +17,22 @@ def remove_readonly(func, path, excinfo):
 
 def safe_remove_tree(dir_path):
     if os.path.exists(dir_path):
-        subprocess.run(f'rmdir /s /q "{dir_path}"', shell=True, capture_output=True)
+        subprocess.run(f'cmd /c rmdir /s /q "{dir_path}"', shell=True, capture_output=True)
         if os.path.exists(dir_path):
-            shutil.rmtree(dir_path, onerror=remove_readonly)
+            try:
+                shutil.rmtree(dir_path, onerror=remove_readonly)
+            except Exception:
+                pass
+
+def safe_copy_file(src, dst):
+    try:
+        shutil.copy2(src, dst)
+    except Exception:
+        try:
+            with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+                fdst.write(fsrc.read())
+        except Exception as e:
+            print(f"Warning copying {src} to {dst}: {e}")
 
 def run(cmd, cwd=ROOT_DIR):
     res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -49,14 +62,14 @@ def main():
             src = os.path.join(ROOT_DIR, f)
             dst = os.path.join(target, f)
             if os.path.exists(src):
-                shutil.copy2(src, dst)
+                safe_copy_file(src, dst)
                 print(f"  Synced -> {os.path.relpath(dst, ROOT_DIR)}")
 
     # 2. Clone repo to temporary directory
     print("\n[2/4] Connecting to GitHub remote...")
     safe_remove_tree(TEMP_SYNC)
 
-    code, out, err = run(f"git clone {REPO_URL} temp_git_sync")
+    code, out, err = run(f"git clone --depth 1 {REPO_URL} temp_git_sync")
     if code != 0:
         print(f"Error cloning repository: {err}")
         sys.exit(1)
@@ -76,7 +89,7 @@ def main():
             src = os.path.join(ROOT_DIR, f)
             dst = os.path.join(target, f)
             if os.path.exists(src):
-                shutil.copy2(src, dst)
+                safe_copy_file(src, dst)
 
     # Copy Capacitor project files
     cap_files = ["package.json", "package-lock.json", "capacitor.config.json"]
@@ -85,7 +98,7 @@ def main():
         for cf in cap_files:
             src_cf = os.path.join(ROOT_DIR, "nextplay", cf)
             if os.path.exists(src_cf):
-                shutil.copy2(src_cf, os.path.join(cap_dst_dir, cf))
+                safe_copy_file(src_cf, os.path.join(cap_dst_dir, cf))
 
     # Copy .github workflows
     src_github = os.path.join(ROOT_DIR, ".github")
@@ -93,14 +106,17 @@ def main():
         dst_github = os.path.join(TEMP_SYNC, ".github")
         if os.path.exists(dst_github):
             safe_remove_tree(dst_github)
-        shutil.copytree(src_github, dst_github)
-        print("  Mirrored -> .github/workflows")
+        try:
+            shutil.copytree(src_github, dst_github)
+            print("  Mirrored -> .github/workflows")
+        except Exception as ge:
+            print(f"Warning mirroring .github: {ge}")
 
     # Copy root helper scripts if available
     for extra in ["run.bat", "push_git.bat", "push_git.py"]:
         src = os.path.join(ROOT_DIR, extra)
         if os.path.exists(src):
-            shutil.copy2(src, os.path.join(TEMP_SYNC, extra))
+            safe_copy_file(src, os.path.join(TEMP_SYNC, extra))
 
     # 4. Check status & Push
     print("\n[4/4] Checking Git status and pushing changes...")

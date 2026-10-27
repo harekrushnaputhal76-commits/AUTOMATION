@@ -542,7 +542,7 @@
     updateUserDisplay();
     switchView("discover");
     loadGames();
-    initLeaderboardRealtime();
+    
     renderAnalytics();
   }
 
@@ -843,11 +843,17 @@
 
   // ── SPA Routing & View Management ──
   function switchView(name){
-    if(state.currentView === "theater" && name !== "theater"){
+    // When switching to any non-theater view (like wallet), fully hide and stop theater
+    if(name !== "theater"){
       endMiningSession();
       const frame = $("#game-iframe");
       if(frame) frame.src = "";
-      $("#view-theater").classList.remove("expanded");
+      const theater = $("#view-theater");
+      if(theater){
+        theater.classList.remove("active");
+        theater.classList.remove("expanded");
+        theater.style.display = "none";
+      }
     }
 
     $$(".view").forEach(v => v.classList.remove("active"));
@@ -861,7 +867,6 @@
     const titles = {
       discover: "Discover",
       analytics: "Platform Activity",
-      leaderboard: "Global Leaderboard",
       wallet: "Wallet & Balances",
       profile: "Profile & Settings",
       theater: "Now Playing",
@@ -877,7 +882,6 @@
     if(instDrawer) instDrawer.style.display = "none";
 
     if(name === "wallet") loadWallet();
-    if(name === "leaderboard") { if(state.leaderboardCache && state.leaderboardCache.length > 0){ renderLeaderboardUI(state.leaderboardCache); } else { initLeaderboardRealtime(); } }
     if(name === "analytics") renderAnalytics();
     if(name === "profile") renderProfileView();
     if(name === "admin") {
@@ -1921,7 +1925,7 @@
     const lbRefresh = $("#leaderboard-refresh-btn");
     if(lbRefresh){
       lbRefresh.addEventListener("click", () => {
-        initLeaderboardRealtime();
+        
         showToast("Leaderboard refreshed from live Firestore.", "🔄");
       });
     }

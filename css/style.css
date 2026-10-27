@@ -782,10 +782,13 @@ h1, h2, h3, h4 {
 
 /* ── Responsive Fullscreen Game Theater ── */
 .theater-view {
+  display: none !important;
+}
+.theater-view.active {
+  display: flex !important;
   padding: 0 !important;
   width: 100%;
   height: calc(100vh - 60px);
-  display: flex;
   flex-direction: column;
   background: #05050A;
   overflow: hidden;
@@ -4066,4 +4069,29 @@ body.is-native-app .apk-floating-banner {
   background: #E2E8F0;
   border-color: #0284C7;
   color: #0F172A;
+}
+
+@media (max-width: 768px) {
+  .wallet-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .wallet-banner {
+    padding: 20px 16px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .wallet-actions-box {
+    width: 100% !important;
+  }
+  .wallet-actions-box button {
+    flex: 1 !important;
+    width: 100% !important;
+  }
+  .converter-box {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .converter-equals {
+    display: none !important;
+  }
 }
