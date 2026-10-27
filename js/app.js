@@ -477,7 +477,7 @@
     }
     updateAdminNavVisibility();
     const cached = getCachedUser();
-    const cachedCoins = cached ? (typeof cached.coins === "number" ? cached.coins : 100) : 100;
+    const cachedCoins = (cached && typeof cached.coins === "number") ? cached.coins : 0;
 
     let profileData = {
       uid: fbUser.uid,
@@ -693,10 +693,16 @@
         uid: deviceCode,
         username: "Guest_" + randId,
         avatar: "👤",
-        coins: 100,
+        coins: 0,
         is_guest: true,
         created_at: Date.now()
       };
+      localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
+    }
+
+    // Reset legacy fake 100 coins seed if no real transactions exist
+    if(guestProfile && guestProfile.coins === 100 && getLocalLogs().length === 0){
+      guestProfile.coins = 0;
       localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(guestProfile));
     }
 
@@ -773,17 +779,45 @@
     try {
       if(emailAuthMode === "register"){
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        if(username && cred.user){
-          await cred.user.updateProfile({ displayName: username });
+        const displayName = username || email.split("@")[0];
+        if(cred.user){
+          try { await cred.user.updateProfile({ displayName: displayName }); } catch(pe){}
+          if(db){
+            try {
+              await db.collection("users").doc(cred.user.uid).set({
+                uid: cred.user.uid,
+                email: email,
+                username: displayName,
+                avatar: "👤",
+                coins: 0,
+                account_type: "email",
+                created_at: firebase.firestore.FieldValue.serverTimestamp(),
+                last_active: firebase.firestore.FieldValue.serverTimestamp()
+              });
+            } catch(de){}
+          }
         }
-        showToast("Account created successfully! Welcome to NexPlay.", "✓");
+        showToast("Account created successfully! Starting with 0 coins.", "✓");
       } else {
         await auth.signInWithEmailAndPassword(email, password);
-        showToast("Signed in successfully!", "✓");
+        showToast("Signed in successfully with email!", "✓");
       }
     } catch(err){
+      console.warn("Email auth error:", err.code, err.message);
       if(errEl){
-        errEl.textContent = err.message;
+        let msg = err.message;
+        if(err.code === "auth/user-not-found"){
+          msg = "No account found with this email. Click 'Create Account' above to sign up.";
+        } else if(err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"){
+          msg = "Incorrect password. Please verify your password and try again.";
+        } else if(err.code === "auth/email-already-in-use"){
+          msg = "An account with this email already exists. Click 'Sign In' to log in.";
+        } else if(err.code === "auth/weak-password"){
+          msg = "Password is too weak. Please use at least 6 characters.";
+        } else if(err.code === "auth/invalid-email"){
+          msg = "Please enter a valid email address.";
+        }
+        errEl.innerHTML = `<div style="background:rgba(255,0,85,0.1); border:1px solid #ff4d79; border-radius:8px; padding:10px; margin-top:8px; color:#ff4d79; font-weight:600;">⚠️ ${escapeHtml(msg)}</div>`;
         errEl.style.display = "block";
       }
     }
@@ -2768,34 +2802,14 @@
 
     const REAL_APK_DOWNLOAD_URL = "https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk";
 
-    // Web Browser context: bind download feedback & link to real GitHub Release
-    const downloadBtns = document.querySelectorAll(".apk-download-btn, .sidebar-apk-card, .btn-apk-banner");
-    downloadBtns.forEach(btn => {
-      btn.href = REAL_APK_DOWNLOAD_URL;
-      btn.setAttribute("download", "nexplay-arcade.apk");
-      btn.addEventListener("click", () => {
-        showToast("Starting APK download from GitHub Releases...", "⬇️");
-      });
-    });
-
-    // Dismissible floating banner (shown smoothly after 1.5s if not previously dismissed)
-    const banner = document.getElementById("apk-floating-banner");
-    const closeBtn = document.getElementById("apk-banner-close");
-    const dismissed = localStorage.getItem("nx_apk_banner_dismissed");
-
-    if(banner && !dismissed){
-      setTimeout(() => {
-        if(!isCapacitorApp() && banner){
-          banner.style.display = "block";
-        }
-      }, 1500);
-    }
-
-    if(closeBtn && banner){
-      closeBtn.addEventListener("click", () => {
-        banner.style.display = "none";
-        localStorage.setItem("nx_apk_banner_dismissed", "1");
-      });
+    // Single sleek header APK download button
+    const apkBtn = document.getElementById("apk-download-btn");
+    if(apkBtn){
+      apkBtn.href = REAL_APK_DOWNLOAD_URL;
+      apkBtn.setAttribute("download", "nexplay-arcade.apk");
+      apkBtn.onclick = () => {
+        showToast("Starting NexPlay APK download from GitHub Releases...", "⬇️");
+      };
     }
   }
 

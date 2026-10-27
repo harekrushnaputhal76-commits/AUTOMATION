@@ -1691,8 +1691,25 @@ h1, h2, h3, h4 {
   .leaderboard-podium { grid-template-columns: 1fr; }
 }
 
+/* Mobile Bottom Navigation - STRICTLY HIDDEN ON DESKTOP */
+#mobile-nav {
+  display: none !important;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 62px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  z-index: 1000;
+  justify-content: space-around;
+  align-items: center;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+}
+
 @media (max-width: 640px) {
-  #mobile-nav { display: flex; }
+  #mobile-nav { display: flex !important; }
   #content { padding-bottom: 74px; }
   .hero-slide { padding: 30px 20px; }
   .hero-title { font-size: 1.8rem; }
@@ -4018,5 +4035,35 @@ body.is-native-app .apk-floating-banner {
 }
 [data-theme="white"] .wallet-payout-table td {
   border-color: #E2E8F0;
+  color: #0F172A;
+}
+
+.btn-email-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+}
+.btn-email-toggle:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: var(--neon-cyan);
+  color: #ffffff;
+}
+[data-theme="white"] .btn-email-toggle {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="white"] .btn-email-toggle:hover {
+  background: #E2E8F0;
+  border-color: #0284C7;
   color: #0F172A;
 }

@@ -55,8 +55,8 @@
         <span>Play as Guest</span>
       </button>
 
-      <button type="button" id="email-toggle-btn" class="btn-link">
-        Sign in with email
+      <button type="button" id="email-toggle-btn" class="btn-email-toggle">
+        ✉️ Sign In or Register with Email
       </button>
     </div>
 
@@ -135,15 +135,7 @@
       <button class="nav-item" data-view="profile"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></button>
     </div>
     <div class="sidebar-footer">
-      <!-- APK Download Widget (Web-Only) -->
-      <a id="sidebar-apk-btn" href="https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk" class="sidebar-apk-card" download title="Download Android APK">
-        <div class="sidebar-apk-icon">🤖</div>
-        <div class="sidebar-apk-content">
-          <span class="sidebar-apk-label">Download & Play in Your Phone</span>
-          <span class="sidebar-apk-sub">Android APK • Free</span>
-        </div>
-        <span class="sidebar-apk-arrow">↓</span>
-      </a>
+
       <div class="coin-display" id="sidebar-coin-box" title="Wallet Balance">
         <span class="coin-icon">🪙</span>
         <span id="sidebar-coins">0</span>
@@ -958,23 +950,7 @@
   </nav>
 </div>
 
-<!-- Floating APK Download Banner (Web-Only, Dismissible) -->
-<div id="apk-floating-banner" class="apk-floating-banner" style="display:none;">
-  <div class="apk-banner-body">
-    <div class="apk-banner-icon">🤖</div>
-    <div class="apk-banner-text">
-      <div class="apk-banner-title">Download & Play in Your Phone</div>
-      <div class="apk-banner-sub">Install Android APK for instant, smooth fullscreen play</div>
-    </div>
-    <div class="apk-banner-actions">
-      <a href="https://github.com/harekrushnaputhal76-commits/AUTOMATION/releases/latest/download/nexplay-arcade.apk" class="btn-apk-banner" download title="Download APK for Android">
-        <span>Get APK</span>
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-      </a>
-      <button id="apk-banner-close" class="apk-close-btn" title="Dismiss">✕</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- Notification Toast -->
 <div id="app-toast" class="app-toast">
