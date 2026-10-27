@@ -875,6 +875,12 @@
       }
     }
 
+    if(name === "theater"){
+      document.body.classList.add("in-theater");
+    } else {
+      document.body.classList.remove("in-theater");
+    }
+
     $$(".view").forEach(v => v.classList.remove("active"));
     const el = $("#view-" + name);
     if(el) el.classList.add("active");
@@ -1423,10 +1429,69 @@
     body.appendChild(frag);
   }
 
+  // ── Rewarded Sponsor Ad Engine (1 Ad = 10 Coins, 10 Ads = 100 Coins, 100 Ads = 1,000 Coins) ──
+  let adTimerInterval = null;
+  function showRewardedAd(source = "Wallet"){
+    const modal = $("#rewarded-ad-modal");
+    if(!modal) return;
+
+    modal.style.display = "flex";
+    const secEl = $("#ad-countdown-sec");
+    const barEl = $("#ad-progress-bar");
+    const claimBtn = $("#ad-claim-btn");
+
+    if(claimBtn) claimBtn.style.display = "none";
+    if(barEl) barEl.style.width = "0%";
+    if(secEl) secEl.textContent = "5";
+
+    let remaining = 5.0;
+    let progress = 0;
+    if(adTimerInterval) clearInterval(adTimerInterval);
+
+    adTimerInterval = setInterval(async () => {
+      remaining -= 0.1;
+      progress += 2;
+      if(barEl) barEl.style.width = Math.min(100, progress) + "%";
+      if(secEl) secEl.textContent = Math.max(0, Math.ceil(remaining));
+
+      if(remaining <= 0){
+        clearInterval(adTimerInterval);
+        adTimerInterval = null;
+
+        // Reward the player with +10 Coins (1 Ad = 10 Coins, 10 Ads = 100 Coins)
+        if(state.user){
+          state.user.ads_watched = (state.user.ads_watched || 0) + 1;
+        }
+
+        await syncCoinsToFirestore(10, "Rewarded Sponsor Ad", "Sponsor Video (" + source + ")");
+        showToast("Reward Unlocked! +10 Coins added to your wallet.", "✓");
+
+        const adNumEl = $("#ad-watched-num");
+        if(adNumEl && state.user) adNumEl.textContent = state.user.ads_watched || 1;
+
+        if(claimBtn){
+          claimBtn.style.display = "inline-flex";
+          claimBtn.onclick = () => {
+            modal.style.display = "none";
+          };
+        }
+
+        setTimeout(() => {
+          if(modal.style.display !== "none"){
+            modal.style.display = "none";
+          }
+        }, 1200);
+      }
+    }, 100);
+  }
+
   // ── Real Firestore Wallet & Live Payouts Tracking ──
   function loadWallet(){
     const coins = (state.user && typeof state.user.coins === "number") ? state.user.coins : 0;
     updateCoinsDisplay(coins);
+
+    const adNumEl = $("#ad-watched-num");
+    if(adNumEl) adNumEl.textContent = (state.user && state.user.ads_watched) ? state.user.ads_watched : 0;
 
     const ci = $("#converter-input");
     if(ci && !ci.value){
@@ -1654,6 +1719,22 @@
       });
     });
     $("#sidebar-toggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+
+    // Rewarded Ad Listeners
+    const wAdBtn = $("#wallet-watch-ad-btn");
+    if(wAdBtn) wAdBtn.addEventListener("click", () => showRewardedAd("Wallet"));
+
+    const mainAdBtn = $("#btn-watch-ad-main");
+    if(mainAdBtn) mainAdBtn.addEventListener("click", () => showRewardedAd("Ad Station"));
+
+    const theaterAdBtn = $("#theater-ad-btn");
+    if(theaterAdBtn) theaterAdBtn.addEventListener("click", () => showRewardedAd("Game Bonus"));
+
+    const adClaimBtn = $("#ad-claim-btn");
+    if(adClaimBtn) adClaimBtn.addEventListener("click", () => {
+      const modal = $("#rewarded-ad-modal");
+      if(modal) modal.style.display = "none";
+    });
 
     // Quick HUD Click Navigation
     const coinHud = $("#hud-coin-badge");
@@ -2219,6 +2300,24 @@
         totalCoins += coins;
         allUsers.push({ id: doc.id, ...u, coins });
       });
+
+      // Always ensure the active session user is listed in Admin table
+      if(state.user){
+        const exists = allUsers.some(u => u.id === state.user.uid || u.uid === state.user.uid);
+        if(!exists){
+          allUsers.push({
+            id: state.user.uid,
+            uid: state.user.uid,
+            username: state.user.username || "Player",
+            email: state.user.email || "",
+            avatar: state.user.avatar || "👤",
+            coins: typeof state.user.coins === "number" ? state.user.coins : 0,
+            is_guest: !!state.user.is_guest,
+            last_active: { toDate: () => new Date() },
+            created_at: Date.now()
+          });
+        }
+      }
 
       // Sort by coins desc
       allUsers.sort((a,b) => (b.coins || 0) - (a.coins || 0));

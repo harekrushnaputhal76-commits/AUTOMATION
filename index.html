@@ -232,6 +232,7 @@
         <button id="theater-back" class="btn-ghost">← Back to Discover</button>
         <span id="theater-title" class="theater-game-title">Game Player</span>
         <div class="theater-controls">
+          <button id="theater-ad-btn" class="btn-bonus-ad" title="Watch Sponsor Ad (+10 Coins)">🎁 +10 Coins</button>
           <a id="theater-popout" class="btn-icon" target="_blank" rel="noopener" title="Open in New Window">↗</a>
           <button id="theater-fullscreen" class="btn-icon" title="Fullscreen">⛶</button>
           <button id="theater-expand" class="btn-icon" title="Expand View">🗖</button>
@@ -336,12 +337,30 @@
           <div class="wallet-inr-tag" id="wallet-inr">= ₹0.00 INR</div>
         </div>
         <div class="wallet-actions-box">
+          <button class="btn-ad-watch" id="wallet-watch-ad-btn">📺 Watch Ad (+10 Coins)</button>
           <button class="btn-primary" id="claim-bonus-btn">Claim Daily Bonus (+100 Coins)</button>
           <button class="btn-secondary" id="withdraw-btn">Request Payout</button>
         </div>
       </div>
 
       <div class="wallet-grid">
+        <!-- Watch Ads & Earn Coins Station -->
+        <div class="wallet-card ad-station-card">
+          <div class="ad-station-header">
+            <span class="ad-icon">📺</span>
+            <div>
+              <h3 class="card-title">Watch Ads & Earn Coins</h3>
+              <p class="card-desc">Watch quick sponsor ads to instantly add Coins to your wallet balance (1 Ad = 10 Coins, 10 Ads = 100 Coins).</p>
+            </div>
+          </div>
+          <div class="ad-station-action">
+            <button class="btn-primary btn-watch-ad" id="btn-watch-ad-main">
+              <span>▶</span> Watch Sponsor Ad (+10 Coins)
+            </button>
+            <span class="ad-count-badge" id="ad-count-badge">Ads Watched: <strong id="ad-watched-num">0</strong></span>
+          </div>
+        </div>
+
         <!-- Currency Converter Card -->
         <div class="wallet-card">
           <h3 class="card-title">Coin Calculator</h3>
@@ -679,7 +698,10 @@
       <div class="section-header-row">
         <div>
           <h2 class="section-title">Admin Control Center</h2>
-          <p class="section-subtitle">Real-time Firebase Firestore database management, user moderation, and economy telemetry.</p>
+          <div class="admin-verified-email-pill" style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.25); border-radius:20px; padding:4px 14px; margin-top:4px; font-size:0.82rem; color:var(--neon-cyan);">
+            <span>🛡️</span> Verified Owner: <strong>harekrushnaputhal76@gmail.com</strong>
+          </div>
+          <p class="section-subtitle" style="margin-top:6px;">Real-time Firebase Firestore database management, user moderation, and economy telemetry.</p>
         </div>
         <div class="admin-header-actions">
           <button id="admin-export-csv-btn" class="btn-secondary btn-sm">📥 Export Users CSV</button>
@@ -876,6 +898,33 @@
 </div>
 
 
+
+<!-- Rewarded Sponsor Ad Modal -->
+<div id="rewarded-ad-modal" class="modal-overlay" style="display:none;">
+  <div class="reward-ad-card">
+    <div class="reward-ad-badge">📺 Sponsored Partner Ad</div>
+    <div class="reward-ad-content">
+      <div class="reward-ad-screen">
+        <div class="ad-visual-sponsor">
+          <span class="sponsor-brand-icon">⚡</span>
+          <h4 class="sponsor-brand-title">NexPlay Gaming Sponsors</h4>
+          <p class="sponsor-brand-tag">Supporting 100% free web games & instant coin earnings</p>
+        </div>
+        <div class="ad-timer-ring">
+          <span id="ad-countdown-sec">5</span>
+          <span class="ad-sec-label">sec</span>
+        </div>
+      </div>
+      <div class="ad-progress-track">
+        <div id="ad-progress-bar" class="ad-progress-bar" style="width: 0%;"></div>
+      </div>
+      <div class="ad-reward-footer">
+        <span class="reward-claim-info">Reward: <strong style="color:var(--cyber-gold);">+10 Coins</strong></span>
+        <button id="ad-claim-btn" class="btn-primary" style="display:none; width:100%; justify-content:center;">Claim +10 Coins ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Notification Toast -->
 <div id="app-toast" class="app-toast">

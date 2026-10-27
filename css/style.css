@@ -4095,3 +4095,510 @@ body.is-native-app .apk-floating-banner {
     display: none !important;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   NATIVE ANDROID EXPERIENCE & REWARDED AD STATION (FINTECH UI)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Ad Reward Buttons */
+.btn-ad-watch {
+  background: linear-gradient(135deg, #FFB800 0%, #FF8800 100%);
+  color: #05050A;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 0.88rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.12s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 14px rgba(255, 184, 0, 0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-ad-watch:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 20px rgba(255, 184, 0, 0.4);
+}
+.btn-ad-watch:active {
+  transform: scale(0.96);
+}
+
+.btn-bonus-ad {
+  background: rgba(255, 184, 0, 0.12);
+  border: 1px solid rgba(255, 184, 0, 0.35);
+  color: var(--cyber-gold);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-bonus-ad:hover {
+  background: rgba(255, 184, 0, 0.22);
+  transform: scale(1.03);
+}
+
+/* Ad Station Card in Wallet */
+.ad-station-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.06) 0%, rgba(0, 240, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 184, 0, 0.25);
+  border-radius: var(--radius-md);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+.ad-station-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.ad-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.ad-station-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.btn-watch-ad {
+  background: linear-gradient(135deg, #FFB800 0%, #FF8800 100%);
+  color: #05050A;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 12px 24px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(255, 184, 0, 0.3);
+}
+.btn-watch-ad:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 24px rgba(255, 184, 0, 0.45);
+}
+.ad-count-badge {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+}
+.ad-count-badge strong {
+  color: var(--neon-cyan);
+}
+
+/* Rewarded Ad Interactive Modal */
+.reward-ad-card {
+  background: #0E131F;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 20px;
+  padding: 28px 24px;
+  width: 390px;
+  max-width: 92vw;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: modalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reward-ad-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 20px;
+  padding: 4px 14px;
+  margin-bottom: 16px;
+  letter-spacing: 0.4px;
+}
+.reward-ad-screen {
+  background: linear-gradient(135deg, #131B2E 0%, #070A12 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 24px 16px;
+  position: relative;
+  margin-bottom: 16px;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+}
+.sponsor-brand-icon {
+  font-size: 2.8rem;
+  display: block;
+  margin-bottom: 8px;
+  animation: floatIcon 2s ease-in-out infinite alternate;
+}
+@keyframes floatIcon {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-4px); }
+}
+.sponsor-brand-title {
+  font-family: var(--font-head);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+}
+.sponsor-brand-tag {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+.ad-timer-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--neon-cyan);
+}
+.ad-sec-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.ad-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.ad-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-cyan), #00FF88);
+  transition: width 0.1s linear;
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+.ad-reward-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.reward-claim-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HIGH-GRADE PHONE & TABLET NATIVE ANDROID COMPATIBILITY (< 640px)
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  html, body, #app, #content {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    position: relative;
+  }
+
+  /* Compact Native Top App Bar */
+  #hud-bar {
+    padding: 0 10px !important;
+    height: 52px !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+  }
+  .hud-left {
+    gap: 6px !important;
+    flex: 1;
+    min-width: 0;
+  }
+  #sidebar-toggle {
+    display: none !important;
+  }
+  #view-title {
+    font-size: 0.98rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 110px !important;
+  }
+  .hud-right {
+    gap: 6px !important;
+    flex-shrink: 0;
+  }
+  .apk-download-btn {
+    padding: 0 8px !important;
+    height: 28px !important;
+    gap: 4px !important;
+    font-size: 0.72rem !important;
+    border-radius: 14px !important;
+  }
+  .apk-download-btn .apk-btn-text {
+    display: none !important;
+  }
+  .apk-download-btn::after {
+    content: "APK ⬇" !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+  }
+  .coin-hud {
+    padding: 3px 8px !important;
+    height: 28px !important;
+    font-size: 0.78rem !important;
+    gap: 4px !important;
+    border-radius: 14px !important;
+  }
+  .theme-quick-toggle {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.85rem !important;
+  }
+  .hud-user {
+    max-width: 65px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Native Material Bottom Navigation Bar */
+  #mobile-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 60px !important;
+    background: rgba(9, 13, 22, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    z-index: 1000 !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
+  }
+  .mob-nav-item {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    gap: 3px;
+    position: relative;
+    transition: color 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-nav-item span:first-child {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+  .mob-nav-item.active {
+    color: var(--neon-cyan) !important;
+  }
+  .mob-nav-item.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 32px;
+    height: 3px;
+    background: var(--neon-cyan);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 0 8px var(--neon-cyan);
+  }
+  .mob-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  /* Content area clear of bottom nav */
+  #content {
+    padding-bottom: 76px !important;
+  }
+  .view {
+    padding: 14px 12px !important;
+  }
+
+  /* Discover Bento Grid: 2 Clean Touch Columns */
+  .category-pills {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 8px !important;
+  }
+  .category-pills::-webkit-scrollbar {
+    display: none !important;
+  }
+  .cat-btn {
+    flex-shrink: 0 !important;
+    padding: 6px 14px !important;
+    font-size: 0.8rem !important;
+    border-radius: 20px !important;
+  }
+  .game-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .game-card {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+  }
+  .game-card:active {
+    transform: scale(0.96) !important;
+  }
+  .game-thumb {
+    aspect-ratio: 4/3 !important;
+    width: 100% !important;
+    object-fit: cover !important;
+  }
+  .game-title {
+    font-size: 0.82rem !important;
+    line-height: 1.2 !important;
+    padding: 6px 8px 2px !important;
+  }
+  .game-category {
+    font-size: 0.68rem !important;
+    padding: 0 8px 6px !important;
+  }
+
+  /* Fullscreen Theater Mode for Mobile Phone */
+  body.in-theater #mobile-nav {
+    display: none !important;
+  }
+  .theater-view.active {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 100vw !important;
+    z-index: 2000 !important;
+  }
+  .theater-hud {
+    padding: 6px 10px !important;
+    height: 44px !important;
+  }
+  .theater-game-title {
+    font-size: 0.85rem !important;
+    max-width: 120px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  #game-container, .game-player-wrapper {
+    height: calc(100vh - 44px) !important;
+    height: calc(100dvh - 44px) !important;
+  }
+
+  /* Wallet & Ad Station on Mobile */
+  .ad-station-card {
+    padding: 16px 14px !important;
+  }
+  .ad-station-header {
+    gap: 10px !important;
+  }
+  .ad-icon {
+    font-size: 1.6rem !important;
+  }
+  .btn-watch-ad {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .wallet-banner {
+    padding: 16px 14px !important;
+    border-radius: 14px !important;
+    gap: 12px !important;
+  }
+  .wallet-coins {
+    font-size: 2rem !important;
+  }
+  .wallet-actions-box button {
+    height: 42px !important;
+    font-size: 0.88rem !important;
+  }
+  .converter-chips {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Profile View on Mobile */
+  .profile-layout-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .player-hero-card {
+    padding: 20px 16px !important;
+  }
+  .profile-fields input {
+    height: 44px !important;
+    font-size: 0.95rem !important;
+  }
+  .profile-actions-row button {
+    height: 44px !important;
+    width: 100% !important;
+  }
+}
+
+/* White Theme Support for Ad Station */
+[data-theme="white"] .ad-station-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+[data-theme="white"] .ad-count-badge {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #475569;
+}
+[data-theme="white"] .reward-ad-card {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+[data-theme="white"] .reward-ad-screen {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="white"] .sponsor-brand-title {
+  color: #0F172A;
+}
+[data-theme="white"] .ad-timer-ring {
+  background: #FFFFFF;
+  border-color: #0284C7;
+  color: #0284C7;
+}
+[data-theme="white"] #mobile-nav {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border-top-color: #E2E8F0 !important;
+}
+[data-theme="white"] .mob-nav-item.active {
+  color: #0284C7 !important;
+}
+[data-theme="white"] .mob-nav-item.active::before {
+  background: #0284C7 !important;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.5) !important;
+}
