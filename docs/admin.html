@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NexPlay Arcade — Admin Control Center</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    /* ── NexPlay Arcade Cyber Admin Design System ── */
+    :root {
+      --bg-base: #05050A;
+      --bg-surface: #090E18;
+      --bg-card: #0F1626;
+      --bg-card-hover: #151F36;
+      --bg-input: #070B13;
+      --border-color: rgba(0, 240, 255, 0.16);
+      --border-color-strong: rgba(0, 240, 255, 0.4);
+      --neon-cyan: #00F0FF;
+      --neon-cyan-glow: rgba(0, 240, 255, 0.25);
+      --neon-green: #00FF88;
+      --neon-green-glow: rgba(0, 255, 136, 0.25);
+      --cyber-gold: #FFB800;
+      --cyber-gold-glow: rgba(255, 184, 0, 0.25);
+      --danger-pink: #FF0055;
+      --danger-pink-glow: rgba(255, 0, 85, 0.3);
+      --text-main: #FFFFFF;
+      --text-muted: #8E9EB5;
+      --text-dim: #54647B;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 90% 90%, rgba(255, 0, 85, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: var(--font-family);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Typography & Links ── */
+    a {
+      color: var(--neon-cyan);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    a:hover {
+      color: #66f5ff;
+    }
+
+    /* ── Header Bar ── */
+    .admin-header {
+      background: rgba(9, 14, 24, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 12px 24px;
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #00F0FF 0%, #0077FE 100%);
+      color: #05050A;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px var(--neon-cyan-glow);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .admin-badge {
+      background: rgba(255, 184, 0, 0.15);
+      border: 1px solid var(--cyber-gold);
+      color: var(--cyber-gold);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .admin-verified-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 255, 136, 0.08);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--neon-green);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--neon-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--neon-green);
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      outline: none;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn-cyan {
+      background: var(--neon-cyan);
+      color: #05050A;
+      box-shadow: 0 0 12px var(--neon-cyan-glow);
+    }
+    .btn-cyan:hover {
+      background: #4df4ff;
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #FFF;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-danger {
+      background: rgba(255, 0, 85, 0.15);
+      border-color: rgba(255, 0, 85, 0.35);
+      color: #ff3377;
+    }
+    .btn-danger:hover {
+      background: var(--danger-pink);
+      color: #FFF;
+      box-shadow: 0 0 12px var(--danger-pink-glow);
+    }
+
+    .btn-warning {
+      background: rgba(255, 184, 0, 0.15);
+      border-color: rgba(255, 184, 0, 0.35);
+      color: var(--cyber-gold);
+    }
+    .btn-warning:hover {
+      background: var(--cyber-gold);
+      color: #05050A;
+      box-shadow: 0 0 12px var(--cyber-gold-glow);
+    }
+
+    .btn-success {
+      background: rgba(0, 255, 136, 0.15);
+      border-color: rgba(0, 255, 136, 0.35);
+      color: var(--neon-green);
+    }
+    .btn-success:hover {
+      background: var(--neon-green);
+      color: #05050A;
+      box-shadow: 0 0 12px var(--neon-green-glow);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+    }
+
+    /* ── Main Container ── */
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* ── Top Stats KPI Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .stat-card:hover {
+      border-color: var(--border-color-strong);
+      transform: translateY(-2px);
+    }
+
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--neon-cyan), transparent);
+    }
+
+    .stat-card.card-active::before {
+      background: linear-gradient(90deg, var(--neon-green), transparent);
+    }
+    .stat-card.card-blocked::before {
+      background: linear-gradient(90deg, var(--danger-pink), transparent);
+    }
+    .stat-card.card-coins::before {
+      background: linear-gradient(90deg, var(--cyber-gold), transparent);
+    }
+
+    .stat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .stat-icon {
+      font-size: 1.15rem;
+    }
+
+    .stat-value {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .stat-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── Controls Toolbar ── */
+    .toolbar-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+      min-width: 280px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 8px 12px 8px 34px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .search-input:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px var(--neon-cyan-glow);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    .filter-select {
+      background: var(--bg-input);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter-select:focus {
+      border-color: var(--neon-cyan);
+    }
+
+    /* ── Users Table ── */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.86rem;
+      min-width: 820px;
+    }
+
+    .users-table thead tr {
+      background: rgba(0, 240, 255, 0.05);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .users-table th {
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      letter-spacing: 0.8px;
+    }
+
+    .users-table tbody tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.15s ease;
+    }
+    .users-table tbody tr:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .users-table td {
+      padding: 12px 16px;
+      vertical-align: middle;
+    }
+
+    /* ── Table Cell Elements ── */
+    .user-avatar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar-img-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .avatar-img-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .user-uid-badge {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #A6C2E2;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 180px;
+    }
+
+    .copy-uid-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s;
+    }
+    .copy-uid-btn:hover {
+      color: var(--neon-cyan);
+    }
+
+    .user-meta-name {
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-meta-email {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* Coin Editor Control */
+    .coin-edit-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-input);
+      border: 1px solid rgba(255, 184, 0, 0.25);
+      border-radius: 6px;
+      padding: 2px 4px;
+    }
+
+    .coin-input {
+      width: 85px;
+      background: transparent;
+      border: none;
+      color: var(--cyber-gold);
+      font-weight: 800;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      padding: 4px;
+      outline: none;
+      text-align: right;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge-active {
+      background: rgba(0, 255, 136, 0.12);
+      border: 1px solid rgba(0, 255, 136, 0.4);
+      color: var(--neon-green);
+    }
+    .badge-blocked {
+      background: rgba(255, 0, 85, 0.12);
+      border: 1px solid rgba(255, 0, 85, 0.4);
+      color: var(--danger-pink);
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Empty State / Error States ── */
+    .empty-state {
+      padding: 60px 24px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 42px;
+      margin-bottom: 12px;
+      opacity: 0.7;
+    }
+
+    .empty-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    /* ── Modals & Gates ── */
+    .gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 10, 0.95);
+      backdrop-filter: blur(16px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .gate-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      max-width: 480px;
+      width: 100%;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 32px var(--neon-cyan-glow);
+      position: relative;
+      animation: gate-appear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes gate-appear {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .gate-card.denied {
+      border-color: rgba(255, 0, 85, 0.5);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 32px var(--danger-pink-glow);
+    }
+
+    .gate-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .gate-card.denied .gate-icon {
+      background: rgba(255, 0, 85, 0.1);
+      border-color: rgba(255, 0, 85, 0.3);
+    }
+
+    .gate-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .gate-desc {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .gate-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Modal dialog */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      max-width: 500px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .modal-close-btn:hover {
+      color: #FFF;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--text-main);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: var(--neon-cyan);
+    }
+
+    /* ── Toast System ── */
+    #admin-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 22, 38, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #FFF;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px var(--neon-cyan-glow);
+      z-index: 2000;
+      transform: translateY(120px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    #admin-toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* ── Responsive Mobile Adjustments ── */
+    @media (max-width: 768px) {
+      .header-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .search-box {
+        min-width: 100%;
+      }
+      .toolbar-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .toolbar-left, .toolbar-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .admin-container {
+        padding: 16px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top Header ── -->
+  <header class="admin-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="brand-icon">▶</div>
+        <div>
+          <div class="brand-title">
+            <span>NexPlay Arcade</span>
+            <span class="admin-badge">Admin Panel</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="admin-verified-pill" id="admin-verified-pill" style="display:none;">
+          <span class="status-dot"></span>
+          <span id="admin-user-email">harekrushnaputhal76@gmail.com</span>
+        </div>
+
+        <a href="index.html" class="btn btn-secondary btn-sm" title="Back to Game Arcade">
+          <span>🎮 Arcade</span>
+        </a>
+
+        <button type="button" id="btn-refresh-data" class="btn btn-secondary btn-sm" title="Reload Firestore Collection">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>Refresh</span>
+        </button>
+
+        <button type="button" id="btn-add-user-modal" class="btn btn-cyan btn-sm" title="Create New User Document">
+          <span>+ Add User</span>
+        </button>
+
+        <button type="button" id="btn-admin-signout" class="btn btn-danger btn-sm" style="display:none;" title="Sign Out">
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Access Gate 1: Loading ── -->
+  <div id="gate-loading" class="gate-overlay">
+    <div class="gate-card">
+      <div class="gate-icon" style="animation: pulse-dot 1.2s infinite ease-in-out;">🛡️</div>
+      <h2 class="gate-title">Verifying Credentials</h2>
+      <p class="gate-desc">Connecting to Firebase Cloud Firestore and checking authorization for NexPlay Arcade...</p>
+    </div>
+  </div>
+
+  <!-- ── Access Gate 2: Login Required ── -->
+  <div id="gate-login" class="gate-overlay" style="display:none;">
+    <div class="gate-card">
+      <div class="gate-icon">🔐</div>
+      <h2 class="gate-title">Admin Authentication</h2>
+      <p class="gate-desc">Restricted portal for NexPlay Arcade. Authorized administrator account required (<strong style="color:var(--neon-cyan);">harekrushnaputhal76@gmail.com</strong>).</p>
+      
+      <div class="gate-actions">
+        <button type="button" id="btn-gate-google-signin" class="btn btn-cyan" style="padding:12px 18px; font-size:0.95rem;">
+          <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right:6px;">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Sign In with Owner Google Account</span>
+        </button>
+
+        <a href="index.html" class="btn btn-secondary">
+          <span>← Return to NexPlay Arcade</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Access Gate 3: Access Denied ── -->
+  <div id="gate-denied" class="gate-overlay" style="display:none;">
+    <div class="gate-card denied">
+      <div class="gate-icon">⛔</div>
+      <h2 class="gate-title" style="color:var(--danger-pink);">Access Denied (403)</h2>
+      <p class="gate-desc">
+        Your current Google account (<span id="denied-email" style="color:#FFF; font-weight:700;"></span>) is not recognized as the designated administrator.<br><br>
+        Only <strong style="color:var(--neon-cyan);">harekrushnaputhal76@gmail.com</strong> has permission to modify the Firestore database.
+      </p>
+      
+      <div class="gate-actions">
+        <button type="button" id="btn-gate-switch-account" class="btn btn-danger">
+          <span>Switch / Sign In with harekrushnaputhal76@gmail.com</span>
+        </button>
+        <a href="index.html" class="btn btn-secondary">
+          <span>Return to NexPlay Arcade</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main Admin Dashboard (Visible only to authorized owner) ── -->
+  <main class="admin-container" id="admin-main" style="display:none;">
+
+    <!-- Top KPI Counters -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>Total Users</span>
+          <span class="stat-icon">👥</span>
+        </div>
+        <div class="stat-value" id="kpi-total-users">0</div>
+        <div class="stat-sub">Firestore documents in `users`</div>
+      </div>
+
+      <div class="stat-card card-active">
+        <div class="stat-header">
+          <span>Active Users</span>
+          <span class="stat-icon">🟢</span>
+        </div>
+        <div class="stat-value" id="kpi-active-users">0</div>
+        <div class="stat-sub">Accounts in good standing</div>
+      </div>
+
+      <div class="stat-card card-blocked">
+        <div class="stat-header">
+          <span>Blocked Accounts</span>
+          <span class="stat-icon">⛔</span>
+        </div>
+        <div class="stat-value" id="kpi-blocked-users">0</div>
+        <div class="stat-sub">Accounts suspended by admin</div>
+      </div>
+
+      <div class="stat-card card-coins">
+        <div class="stat-header">
+          <span>Total Coins Pool</span>
+          <span class="stat-icon">🪙</span>
+        </div>
+        <div class="stat-value" id="kpi-total-coins">0</div>
+        <div class="stat-sub" id="kpi-inr-value">≈ ₹0.00 INR (1,000 Coins = ₹1)</div>
+      </div>
+    </div>
+
+    <!-- Controls & Search Toolbar -->
+    <div class="toolbar-card">
+      <div class="toolbar-left">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="admin-search-input" class="search-input" placeholder="Search by UID, email, or username...">
+        </div>
+
+        <select id="admin-filter-status" class="filter-select">
+          <option value="all">All Statuses</option>
+          <option value="active">Active Only</option>
+          <option value="blocked">Blocked Only</option>
+        </select>
+
+        <select id="admin-sort-by" class="filter-select">
+          <option value="coins-desc">Coins: Highest First</option>
+          <option value="coins-asc">Coins: Lowest First</option>
+          <option value="newest">Newest First</option>
+          <option value="name">Name / Email (A-Z)</option>
+        </select>
+      </div>
+
+      <div class="toolbar-right">
+        <button type="button" id="btn-export-csv" class="btn btn-secondary btn-sm" title="Download users as CSV spreadsheet">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          <span>Export CSV</span>
+        </button>
+
+        <button type="button" id="btn-rules-help" class="btn btn-secondary btn-sm" title="View Firestore Security Rules snippet">
+          <span>📜 Firestore Rules</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Users Table Container -->
+    <div class="table-container">
+      <div class="table-wrapper">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">Photo</th>
+              <th style="width: 220px;">User ID (UID)</th>
+              <th>Email &amp; Username</th>
+              <th style="width: 190px;">Total Coins</th>
+              <th style="width: 120px;">Status</th>
+              <th style="width: 210px;">Admin Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <!-- Dynamically populated rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State if no documents -->
+      <div id="users-empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">No Users Found in Firestore</div>
+        <p style="margin-bottom:16px;">The `users` collection is currently empty or matching no filters.</p>
+        <button type="button" id="btn-seed-owner-user" class="btn btn-cyan btn-sm">
+          <span>+ Create Initial Admin Profile in Firestore</span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Modal: Add / Seed User ── -->
+  <div id="modal-add-user" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Create User in Firestore</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-add-user">
+        <div class="form-group">
+          <label class="form-label" for="add-user-uid">User ID (UID)</label>
+          <input type="text" id="add-user-uid" class="form-input" placeholder="e.g. nx_user_123 or Firebase UID" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="add-user-email">Email Address</label>
+          <input type="email" id="add-user-email" class="form-input" placeholder="player@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="add-user-name">Username / Display Name</label>
+          <input type="text" id="add-user-name" class="form-input" placeholder="PlayerOne" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="add-user-coins">Starting Coins</label>
+          <input type="number" id="add-user-coins" class="form-input" value="100" min="0" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="add-user-status">Account Status</label>
+          <select id="add-user-status" class="form-input">
+            <option value="active">Active</option>
+            <option value="blocked">Blocked</option>
+          </select>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-cyan">Save to Firestore</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Delete Confirmation ── -->
+  <div id="modal-delete-confirm" class="modal-overlay">
+    <div class="modal-box" style="border-color: rgba(255, 0, 85, 0.4);">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color:var(--danger-pink);">Confirm Document Deletion</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <p style="color:var(--text-muted); line-height:1.6; margin-bottom:16px;">
+        Are you sure you want to permanently delete user document <strong id="delete-target-uid" style="color:#FFF; font-family:var(--font-mono);"></strong> from the Firestore `users` collection?
+      </p>
+      <p style="font-size:0.8rem; color:#ff7799; margin-bottom:20px;">
+        ⚠️ This operation is irreversible. Coin balances and user data will be wiped from Cloud Firestore.
+      </p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+        <button type="button" id="btn-confirm-delete" class="btn btn-danger">Permanently Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Firestore Security Rules Guide ── -->
+  <div id="modal-rules-help" class="modal-overlay">
+    <div class="modal-box" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Cloud Firestore Security Rules</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.84rem; margin-bottom:12px; line-height:1.5;">
+        If you see <code style="color:var(--neon-cyan);">permission-denied</code> errors in browser console, make sure your Firestore Rules in Firebase Console (<a href="https://console.firebase.google.com/u/0/project/nextgame-b0ff3/firestore/databases/-default-/rules" target="_blank" rel="noopener">Rules Tab</a>) allow reading and writing:
+      </p>
+
+      <pre style="background:var(--bg-input); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px; font-family:var(--font-mono); font-size:0.75rem; color:#A6C2E2; overflow-x:auto; margin-bottom:16px;">
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" id="btn-copy-rules" class="btn btn-cyan btn-sm">Copy Rules Code</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-close-modal>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Floating Toast Notification ── -->
+  <div id="admin-toast">
+    <span id="toast-icon">⚡</span>
+    <span id="toast-text">Notification</span>
+  </div>
+
+  <!-- ── Firebase v10 SDK (Modular) Logic ── -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { 
+      getAuth, 
+      onAuthStateChanged, 
+      signInWithPopup, 
+      GoogleAuthProvider, 
+      signOut 
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      getDocs, 
+      doc, 
+      getDoc, 
+      setDoc, 
+      updateDoc, 
+      deleteDoc, 
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // ── 1. Firebase Configuration & Initialization ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOtQhO6frKmBHp389AB7-EU1HLMWT3IDY",
+      authDomain: "nextgame-b0ff3.firebaseapp.com",
+      projectId: "nextgame-b0ff3",
+      storageBucket: "nextgame-b0ff3.firebasestorage.app",
+      messagingSenderId: "653354001953",
+      appId: "1:653354001953:web:7c6b0a2dae2e3b06512560",
+      measurementId: "G-HTDYPKW9KW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // STRICT OWNER RESTRICTION
+    const AUTHORIZED_ADMIN_EMAIL = "harekrushnaputhal76@gmail.com";
+
+    // ── Application State ──
+    let currentUser = null;
+    let allUsersCache = [];
+    let deleteCandidateUid = null;
+
+    // ── Toast System ──
+    let toastTimer = null;
+    function showToast(text, icon = "⚡") {
+      const toast = document.getElementById("admin-toast");
+      const iconEl = document.getElementById("toast-icon");
+      const textEl = document.getElementById("toast-text");
+      if (!toast) return;
+      iconEl.textContent = icon;
+      textEl.textContent = text;
+      toast.classList.add("show");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3500);
+    }
+
+    // ── UI Gate Management ──
+    const gateLoading = document.getElementById("gate-loading");
+    const gateLogin = document.getElementById("gate-login");
+    const gateDenied = document.getElementById("gate-denied");
+    const adminMain = document.getElementById("admin-main");
+    const adminUserEmail = document.getElementById("admin-user-email");
+    const adminVerifiedPill = document.getElementById("admin-verified-pill");
+    const btnAdminSignout = document.getElementById("btn-admin-signout");
+    const deniedEmailEl = document.getElementById("denied-email");
+
+    function showGate(gate) {
+      gateLoading.style.display = "none";
+      gateLogin.style.display = "none";
+      gateDenied.style.display = "none";
+      adminMain.style.display = "none";
+      if (adminVerifiedPill) adminVerifiedPill.style.display = "none";
+      if (btnAdminSignout) btnAdminSignout.style.display = "none";
+
+      if (gate === "loading") {
+        gateLoading.style.display = "flex";
+      } else if (gate === "login") {
+        gateLogin.style.display = "flex";
+      } else if (gate === "denied") {
+        gateDenied.style.display = "flex";
+      } else if (gate === "main") {
+        adminMain.style.display = "block";
+        if (adminVerifiedPill) adminVerifiedPill.style.display = "inline-flex";
+        if (btnAdminSignout) btnAdminSignout.style.display = "inline-flex";
+      }
+    }
+
+    // ── 2. Admin Authentication Verification (onAuthStateChanged) ──
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+
+      if (!user) {
+        // Not logged in -> Show Google Sign-in Gate
+        showGate("login");
+        return;
+      }
+
+      const email = (user.email || "").toLowerCase().trim();
+      if (email !== AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
+        // Logged in with unauthorized email -> STRICT ACCESS DENIED
+        if (deniedEmailEl) deniedEmailEl.textContent = email || "Anonymous / No Email";
+        showGate("denied");
+        return;
+      }
+
+      // Authorized Owner!
+      if (adminUserEmail) adminUserEmail.textContent = email;
+      showGate("main");
+      showToast(`Authenticated as Owner (${email})`, "🛡️");
+
+      // Load Firestore users
+      await fetchAndRenderUsers();
+    });
+
+    // Google Sign-In Trigger
+    async function handleGoogleSignIn() {
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (err) {
+        console.error("Admin sign-in error:", err);
+        showToast(err.message || "Failed to sign in with Google", "⚠️");
+      }
+    }
+
+    document.getElementById("btn-gate-google-signin").addEventListener("click", handleGoogleSignIn);
+    document.getElementById("btn-gate-switch-account").addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        await signInWithPopup(auth, googleProvider);
+      } catch (err) {
+        console.error("Switch account error:", err);
+      }
+    });
+
+    document.getElementById("btn-admin-signout").addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        showGate("login");
+        showToast("Signed out successfully", "ℹ");
+      } catch (err) {
+        console.error("Signout error:", err);
+      }
+    });
+
+    // ── 3. Fetch All Users from Firestore (`getDocs`) ──
+    async function fetchAndRenderUsers() {
+      const tbody = document.getElementById("users-table-body");
+      const emptyState = document.getElementById("users-empty-state");
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:32px; color:var(--text-muted);">Fetching Firestore documents...</td></tr>`;
+
+      try {
+        const usersCol = collection(db, "users");
+        const snapshot = await getDocs(usersCol);
+
+        allUsersCache = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          allUsersCache.push({
+            id: docSnap.id,
+            uid: data.uid || docSnap.id,
+            email: data.email || "",
+            username: data.username || "Player",
+            coins: typeof data.coins === "number" ? data.coins : 0,
+            avatar: data.avatar || "👤",
+            is_banned: !!(data.is_banned || data.status === "blocked" || data.status === "banned"),
+            status: (data.status || (data.is_banned ? "blocked" : "active")),
+            created_at: data.createdAt || data.created_at || null
+          });
+        });
+
+        updateKpiCounters();
+        renderFilteredUsers();
+        showToast(`Loaded ${allUsersCache.length} user records from Firestore`, "✓");
+
+      } catch (err) {
+        console.error("Firestore getDocs error:", err);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:32px; color:var(--danger-pink);">
+          Error reading Firestore collection: ${err.message}<br>
+          <small style="color:var(--text-muted);">Please check your Cloud Firestore Security Rules.</small>
+        </td></tr>`;
+        showToast("Failed to fetch Firestore users: " + err.message, "⚠️");
+      }
+    }
+
+    // ── 4. KPI Counters Update ──
+    function updateKpiCounters() {
+      const total = allUsersCache.length;
+      const blocked = allUsersCache.filter(u => u.is_banned).length;
+      const active = total - blocked;
+      const totalCoins = allUsersCache.reduce((sum, u) => sum + (Number(u.coins) || 0), 0);
+      const inrVal = (totalCoins / 1000).toFixed(2);
+
+      document.getElementById("kpi-total-users").textContent = total.toLocaleString();
+      document.getElementById("kpi-active-users").textContent = active.toLocaleString();
+      document.getElementById("kpi-blocked-users").textContent = blocked.toLocaleString();
+      document.getElementById("kpi-total-coins").textContent = totalCoins.toLocaleString();
+      document.getElementById("kpi-inr-value").textContent = `≈ ₹${inrVal} INR (1,000 Coins = ₹1)`;
+    }
+
+    // ── 5. Render Users Table with Filter & Sort ──
+    function renderFilteredUsers() {
+      const tbody = document.getElementById("users-table-body");
+      const emptyState = document.getElementById("users-empty-state");
+      const searchQuery = (document.getElementById("admin-search-input").value || "").toLowerCase().trim();
+      const filterStatus = document.getElementById("admin-filter-status").value;
+      const sortBy = document.getElementById("admin-sort-by").value;
+
+      let filtered = allUsersCache.filter(u => {
+        // Status filter
+        if (filterStatus === "active" && u.is_banned) return false;
+        if (filterStatus === "blocked" && !u.is_banned) return false;
+
+        // Search query (uid, email, username)
+        if (searchQuery) {
+          const matchUid = u.uid.toLowerCase().includes(searchQuery);
+          const matchEmail = u.email.toLowerCase().includes(searchQuery);
+          const matchName = u.username.toLowerCase().includes(searchQuery);
+          if (!matchUid && !matchEmail && !matchName) return false;
+        }
+        return true;
+      });
+
+      // Sorting
+      filtered.sort((a, b) => {
+        if (sortBy === "coins-desc") return (b.coins || 0) - (a.coins || 0);
+        if (sortBy === "coins-asc") return (a.coins || 0) - (b.coins || 0);
+        if (sortBy === "name") return (a.username || a.email).localeCompare(b.username || b.email);
+        return 0;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = "";
+        emptyState.style.display = "block";
+        return;
+      }
+
+      emptyState.style.display = "none";
+      tbody.innerHTML = filtered.map(u => {
+        const isImg = u.avatar && (u.avatar.startsWith("http://") || u.avatar.startsWith("https://") || u.avatar.startsWith("data:image/"));
+        const avatarHtml = isImg 
+          ? `<img src="${escapeHtml(u.avatar)}" alt="Avatar" />`
+          : `<span>${escapeHtml(u.avatar || "👤")}</span>`;
+
+        const statusBadge = u.is_banned 
+          ? `<span class="badge badge-blocked">Blocked</span>`
+          : `<span class="badge badge-active">Active</span>`;
+
+        const toggleBtnLabel = u.is_banned ? "Unblock" : "Block";
+        const toggleBtnClass = u.is_banned ? "btn-success" : "btn-warning";
+
+        return `
+          <tr data-uid="${escapeHtml(u.id)}">
+            <td>
+              <div class="avatar-img-circle">${avatarHtml}</div>
+            </td>
+            <td>
+              <div class="user-uid-badge" title="${escapeHtml(u.uid)}">
+                <span>${escapeHtml(formatShortUid(u.uid))}</span>
+                <button type="button" class="copy-uid-btn" data-copy="${escapeHtml(u.uid)}" title="Copy Full UID">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+            <td>
+              <div class="user-meta-name">${escapeHtml(u.username)}</div>
+              <div class="user-meta-email">${escapeHtml(u.email || "No Email / Guest")}</div>
+            </td>
+            <td>
+              <div class="coin-edit-wrap">
+                <span style="font-size:14px;">🪙</span>
+                <input type="number" class="coin-input" id="coins-input-${escapeHtml(u.id)}" value="${Number(u.coins) || 0}" min="0">
+                <button type="button" class="btn btn-cyan btn-sm btn-update-coins" data-uid="${escapeHtml(u.id)}">
+                  Update
+                </button>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+              <div class="row-actions">
+                <button type="button" class="btn ${toggleBtnClass} btn-sm btn-toggle-block" data-uid="${escapeHtml(u.id)}" data-banned="${u.is_banned}">
+                  ${toggleBtnLabel}
+                </button>
+                <button type="button" class="btn btn-danger btn-sm btn-delete-user" data-uid="${escapeHtml(u.id)}">
+                  Delete Data
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      attachRowEventListeners();
+    }
+
+    function formatShortUid(uid) {
+      if (!uid) return "";
+      if (uid.length <= 14) return uid;
+      return uid.substring(0, 6) + "..." + uid.substring(uid.length - 4);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // ── 6. Full Admin Actions (Update Coins, Block/Unblock, Delete Data) ──
+
+    function attachRowEventListeners() {
+      // Copy UID
+      document.querySelectorAll(".copy-uid-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const val = btn.getAttribute("data-copy");
+          navigator.clipboard.writeText(val).then(() => {
+            showToast("Copied UID: " + val, "📋");
+          });
+        });
+      });
+
+      // Update Coins Button (`updateDoc`)
+      document.querySelectorAll(".btn-update-coins").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const uid = btn.getAttribute("data-uid");
+          const input = document.getElementById(`coins-input-${uid}`);
+          if (!input) return;
+
+          const newCoins = parseInt(input.value, 10);
+          if (isNaN(newCoins) || newCoins < 0) {
+            showToast("Please enter a valid non-negative coin amount", "⚠️");
+            return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = "...";
+
+          try {
+            const userRef = doc(db, "users", uid);
+            await updateDoc(userRef, {
+              coins: newCoins,
+              last_modified: serverTimestamp()
+            });
+
+            // Update in cache
+            const target = allUsersCache.find(u => u.id === uid);
+            if (target) target.coins = newCoins;
+            updateKpiCounters();
+
+            showToast(`Updated coins for ${formatShortUid(uid)} to ${newCoins.toLocaleString()} 🪙`, "✓");
+          } catch (err) {
+            console.error("Coin update error:", err);
+            showToast("Failed to update coins: " + err.message, "⚠️");
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Update";
+          }
+        });
+      });
+
+      // Block / Unblock Toggle (`updateDoc`)
+      document.querySelectorAll(".btn-toggle-block").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const uid = btn.getAttribute("data-uid");
+          const isCurrentlyBanned = btn.getAttribute("data-banned") === "true";
+          const newBannedState = !isCurrentlyBanned;
+          const newStatus = newBannedState ? "blocked" : "active";
+
+          btn.disabled = true;
+
+          try {
+            const userRef = doc(db, "users", uid);
+            await updateDoc(userRef, {
+              is_banned: newBannedState,
+              status: newStatus,
+              last_modified: serverTimestamp()
+            });
+
+            // Update in cache
+            const target = allUsersCache.find(u => u.id === uid);
+            if (target) {
+              target.is_banned = newBannedState;
+              target.status = newStatus;
+            }
+
+            updateKpiCounters();
+            renderFilteredUsers();
+
+            const actionLabel = newBannedState ? "BLOCKED" : "UNBLOCKED";
+            showToast(`User ${formatShortUid(uid)} is now ${actionLabel}`, newBannedState ? "⛔" : "🟢");
+          } catch (err) {
+            console.error("Block toggle error:", err);
+            showToast("Failed to modify user status: " + err.message, "⚠️");
+            btn.disabled = false;
+          }
+        });
+      });
+
+      // Delete Data Prompt (`deleteDoc`)
+      document.querySelectorAll(".btn-delete-user").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const uid = btn.getAttribute("data-uid");
+          deleteCandidateUid = uid;
+          document.getElementById("delete-target-uid").textContent = uid;
+          document.getElementById("modal-delete-confirm").classList.add("active");
+        });
+      });
+    }
+
+    // Confirm Delete Action
+    document.getElementById("btn-confirm-delete").addEventListener("click", async () => {
+      if (!deleteCandidateUid) return;
+      const uid = deleteCandidateUid;
+      const btn = document.getElementById("btn-confirm-delete");
+      btn.disabled = true;
+      btn.textContent = "Deleting...";
+
+      try {
+        const userRef = doc(db, "users", uid);
+        await deleteDoc(userRef);
+
+        // Remove from local cache
+        allUsersCache = allUsersCache.filter(u => u.id !== uid);
+        updateKpiCounters();
+        renderFilteredUsers();
+
+        document.getElementById("modal-delete-confirm").classList.remove("active");
+        showToast(`Document ${formatShortUid(uid)} removed from Firestore`, "🗑️");
+      } catch (err) {
+        console.error("Delete doc error:", err);
+        showToast("Failed to delete user document: " + err.message, "⚠️");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Permanently Delete";
+        deleteCandidateUid = null;
+      }
+    });
+
+    // ── 7. Add New User Document (`setDoc`) ──
+    const formAddUser = document.getElementById("form-add-user");
+    formAddUser.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const uid = document.getElementById("add-user-uid").value.trim();
+      const email = document.getElementById("add-user-email").value.trim();
+      const username = document.getElementById("add-user-name").value.trim();
+      const coins = parseInt(document.getElementById("add-user-coins").value, 10) || 0;
+      const status = document.getElementById("add-user-status").value;
+
+      if (!uid || !username) {
+        showToast("UID and Display Name are required", "⚠️");
+        return;
+      }
+
+      try {
+        const userDocRef = doc(db, "users", uid);
+        await setDoc(userDocRef, {
+          uid: uid,
+          email: email,
+          username: username,
+          coins: coins,
+          avatar: "⚡",
+          status: status,
+          is_banned: status === "blocked",
+          createdAt: serverTimestamp(),
+          last_active: serverTimestamp()
+        }, { merge: true });
+
+        document.getElementById("modal-add-user").classList.remove("active");
+        formAddUser.reset();
+        showToast(`Created user ${username} (${uid}) in Firestore`, "✓");
+
+        await fetchAndRenderUsers();
+      } catch (err) {
+        console.error("Create user error:", err);
+        showToast("Error creating user: " + err.message, "⚠️");
+      }
+    });
+
+    // Seed Owner Profile (Quick action when collection is empty)
+    document.getElementById("btn-seed-owner-user").addEventListener("click", async () => {
+      try {
+        const ownerUid = currentUser ? currentUser.uid : "owner_admin_1";
+        const userDocRef = doc(db, "users", ownerUid);
+        await setDoc(userDocRef, {
+          uid: ownerUid,
+          email: AUTHORIZED_ADMIN_EMAIL,
+          username: "NexPlay Owner",
+          coins: 50000,
+          avatar: "👑",
+          status: "active",
+          is_banned: false,
+          role: "owner",
+          createdAt: serverTimestamp(),
+          last_active: serverTimestamp()
+        }, { merge: true });
+
+        showToast("Created Initial Owner Document in Firestore!", "👑");
+        await fetchAndRenderUsers();
+      } catch (err) {
+        console.error("Seed error:", err);
+        showToast("Failed to seed owner document: " + err.message, "⚠️");
+      }
+    });
+
+    // ── 8. Search, Filters & Sorting Listeners ──
+    document.getElementById("admin-search-input").addEventListener("input", renderFilteredUsers);
+    document.getElementById("admin-filter-status").addEventListener("change", renderFilteredUsers);
+    document.getElementById("admin-sort-by").addEventListener("change", renderFilteredUsers);
+    document.getElementById("btn-refresh-data").addEventListener("click", async () => {
+      showToast("Refreshing users from Firestore...", "⏳");
+      await fetchAndRenderUsers();
+    });
+
+    // ── 9. Export Users to CSV ──
+    document.getElementById("btn-export-csv").addEventListener("click", () => {
+      if (allUsersCache.length === 0) {
+        showToast("No user records to export", "ℹ");
+        return;
+      }
+
+      let csv = "UID,Username,Email,Coins,Status,IsBanned\n";
+      allUsersCache.forEach(u => {
+        const email = (u.email || "").replace(/"/g, '""');
+        const name = (u.username || "").replace(/"/g, '""');
+        csv += `"${u.uid}","${name}","${email}",${u.coins},"${u.status}",${u.is_banned}\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `nexplay_users_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Exported users to CSV file", "📥");
+    });
+
+    // ── 10. Modals Management ──
+    document.getElementById("btn-add-user-modal").addEventListener("click", () => {
+      document.getElementById("modal-add-user").classList.add("active");
+    });
+
+    document.getElementById("btn-rules-help").addEventListener("click", () => {
+      document.getElementById("modal-rules-help").classList.add("active");
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("active"));
+      });
+    });
+
+    document.getElementById("btn-copy-rules").addEventListener("click", () => {
+      const rules = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}`;
+      navigator.clipboard.writeText(rules).then(() => {
+        showToast("Firestore Rules copied to clipboard!", "📋");
+      });
+    });
+
+  </script>
+</body>
+</html>
