@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>NexPlay Arcade — Cloud Gaming Portal</title>
+<meta name="description" content="Play 100+ free HTML5 games, earn coins, and compete on the global leaderboard.">
+<meta name="theme-color" content="#090A0F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<!-- AdSense Header Slot -->
+<div id="adsense-header-slot" class="ad-slot ad-header" style="display:none;"></div>
+</head>
+<body class="no-low-spec">
+
+<!-- Auth Modal -->
+<div id="auth-modal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-brand"><span class="brand-icon">▶</span> NexPlay Arcade</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="login">Sign In</button>
+      <button class="modal-tab" data-tab="register">Create Account</button>
+    </div>
+    <form id="auth-form">
+      <div class="input-group">
+        <input type="text" id="auth-username" placeholder="Username" required autocomplete="username" maxlength="24">
+      </div>
+      <div class="input-group">
+        <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password" minlength="4">
+      </div>
+      <button type="submit" class="btn-primary" id="auth-submit">Sign In</button>
+      <p id="auth-error" class="error-text"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Main App Shell -->
+<div id="app" style="display:none;">
+  <!-- Desktop Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-brand"><span class="brand-icon">▶</span><span class="brand-text">NexPlay</span></div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-view="discover"><span class="nav-icon">⌂</span><span class="nav-label">Discover</span></button>
+      <button class="nav-item" data-view="analytics"><span class="nav-icon">◈</span><span class="nav-label">Analytics</span></button>
+      <button class="nav-item" data-view="leaderboard"><span class="nav-icon">⚑</span><span class="nav-label">Rankings</span></button>
+      <button class="nav-item" data-view="wallet"><span class="nav-icon">◉</span><span class="nav-label">Wallet</span></button>
+      <button class="nav-item" data-view="profile"><span class="nav-icon">⊕</span><span class="nav-label">Profile</span></button>
+      <button class="nav-item" data-view="admin" id="admin-nav" style="display:none;"><span class="nav-icon">⚙</span><span class="nav-label">Admin</span></button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="coin-display"><span class="coin-icon">⬡</span><span id="sidebar-coins">0</span></div>
+      <button id="chat-toggle" class="btn-ghost">💬 Chat</button>
+      <button id="logout-btn" class="btn-ghost">↩ Logout</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="content">
+    <!-- Top HUD Bar -->
+    <header id="hud-bar">
+      <div class="hud-left">
+        <button id="sidebar-toggle" class="btn-icon">☰</button>
+        <span id="view-title">Discover</span>
+      </div>
+      <div class="hud-right">
+        <div class="coin-hud"><span class="coin-icon">⬡</span><span id="hud-coins">0</span></div>
+        <div id="miner-hud" class="miner-hud" style="display:none;">
+          <span class="miner-dot"></span><span id="miner-status">Mining...</span>
+          <span id="miner-coins-rate">+0</span>
+        </div>
+        <span id="hud-user" class="hud-user"></span>
+      </div>
+    </header>
+
+    <!-- Discover View -->
+    <section id="view-discover" class="view active">
+      <!-- Hero Spotlight -->
+      <div id="hero-carousel" class="hero-carousel">
+        <div class="hero-slide active">
+          <div class="hero-content">
+            <span class="hero-badge">TRENDING NOW</span>
+            <h1 class="hero-title">Play. Earn. Compete.</h1>
+            <p class="hero-sub">100+ free HTML5 games · Earn coins every minute · Climb the leaderboard</p>
+            <button class="btn-primary" onclick="document.getElementById('game-grid').scrollIntoView({behavior:'smooth'})">Browse Games ↓</button>
+          </div>
+        </div>
+      </div>
+      <!-- Category Pills -->
+      <div class="category-bar">
+        <button class="cat-pill active" data-cat="all">All Games</button>
+        <button class="cat-pill" data-cat="action">Action</button>
+        <button class="cat-pill" data-cat="racing">Racing</button>
+        <button class="cat-pill" data-cat="shooting">Shooting</button>
+        <button class="cat-pill" data-cat="arcade">Arcade</button>
+        <button class="cat-pill" data-cat="puzzle">Puzzle</button>
+        <button class="cat-pill" data-cat="sports">Sports</button>
+        <button class="cat-pill" data-cat="multiplayer">Multiplayer</button>
+      </div>
+      <!-- Search -->
+      <div class="search-bar">
+        <input type="text" id="game-search" placeholder="Search games..." autocomplete="off">
+      </div>
+      <!-- AdSense Sidebar Slot -->
+      <div id="adsense-sidebar-slot" class="ad-slot ad-sidebar" style="display:none;"></div>
+      <!-- Game Grid -->
+      <div id="game-grid" class="game-grid">
+        <div class="skeleton-grid" id="skeleton-loader">
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+        </div>
+      </div>
+      <div class="load-more-wrap">
+        <button id="load-more" class="btn-secondary">Load More Games →</button>
+      </div>
+    </section>
+
+    <!-- Theater Mode -->
+    <section id="view-theater" class="view theater-view">
+      <div class="theater-hud">
+        <button id="theater-back" class="btn-ghost">← Back</button>
+        <span id="theater-title" class="theater-game-title"></span>
+        <div class="theater-controls">
+          <button id="theater-mute" class="btn-icon" title="Mute/Unmute">🔊</button>
+          <button id="theater-expand" class="btn-icon" title="Expand">⛶</button>
+          <button id="theater-fullscreen" class="btn-icon" title="Fullscreen">⤢</button>
+          <button id="theater-info" class="btn-icon" title="Instructions">ℹ</button>
+        </div>
+      </div>
+      <div class="theater-miner-bar" id="theater-miner">
+        <span class="miner-dot"></span>
+        <span>Coin Miner Active</span>
+        <span id="theater-session-coins">+0 ⬡</span>
+        <span id="theater-session-time">0:00</span>
+      </div>
+      <div id="idle-overlay" class="idle-overlay" style="display:none;">
+        <div class="idle-content">
+          <span class="idle-icon">⏸</span>
+          <p>Session Paused — You went idle</p>
+          <button class="btn-primary" id="resume-btn">Click to Resume</button>
+        </div>
+      </div>
+      <iframe id="game-iframe" class="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
+      <div id="game-instructions-drawer" class="instructions-drawer" style="display:none;">
+        <h3>Game Instructions</h3>
+        <p id="game-instructions-text"></p>
+      </div>
+      <!-- AdSense Below Player Slot -->
+      <div id="adsense-below-player-slot" class="ad-slot ad-below-player" style="display:none;"></div>
+    </section>
+
+    <!-- Analytics View -->
+    <section id="view-analytics" class="view">
+      <h2 class="section-title">Live Analytics & Prize Pool</h2>
+      <div class="analytics-grid">
+        <div class="stat-card"><span class="stat-label">Total Gamers</span><span id="stat-users" class="stat-value">—</span></div>
+        <div class="stat-card"><span class="stat-label">Coins Mined</span><span id="stat-coins" class="stat-value">—</span></div>
+        <div class="stat-card accent"><span class="stat-label">Active Now</span><span id="stat-active" class="stat-value">—</span></div>
+        <div class="stat-card gold"><span class="stat-label">Prize Pool</span><span id="stat-pool" class="stat-value">—</span></div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-card"><canvas id="chart-activity"></canvas></div>
+        <div class="chart-card"><canvas id="chart-pool"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Leaderboard View -->
+    <section id="view-leaderboard" class="view">
+      <h2 class="section-title">Global Rankings</h2>
+      <div class="leaderboard-table" id="leaderboard-body"></div>
+    </section>
+
+    <!-- Wallet View -->
+    <section id="view-wallet" class="view">
+      <h2 class="section-title">Wallet & Vault</h2>
+      <div class="wallet-header">
+        <div class="wallet-balance">
+          <span class="wallet-coins" id="wallet-coins">0</span><span class="wallet-label">Coins</span>
+          <span class="wallet-inr" id="wallet-inr">= ₹0.00</span>
+        </div>
+        <div class="wallet-converter">
+          <input type="number" id="converter-input" placeholder="Enter coins" min="0">
+          <span id="converter-result">= ₹0.00</span>
+        </div>
+      </div>
+      <div class="redeem-progress">
+        <div class="progress-bar"><div class="progress-fill" id="redeem-progress-fill"></div></div>
+        <p class="redeem-status" id="redeem-status"></p>
+        <p class="payout-badge" id="payout-badge"></p>
+      </div>
+      <h3 class="sub-title">Transaction History</h3>
+      <div id="wallet-logs" class="wallet-logs"></div>
+    </section>
+
+    <!-- Profile View -->
+    <section id="view-profile" class="view">
+      <h2 class="section-title">Profile & Settings</h2>
+      <div class="profile-card">
+        <div class="avatar-selector">
+          <div class="avatar-current" id="avatar-display">👤</div>
+          <div class="avatar-options" id="avatar-options"></div>
+        </div>
+        <div class="profile-fields">
+          <label>Username</label>
+          <input type="text" id="profile-username" maxlength="24">
+          <label class="toggle-label"><input type="checkbox" id="profile-sound"> Sound Effects</label>
+          <label class="toggle-label"><input type="checkbox" id="profile-lowspec"> Low-Spec PC Mode</label>
+          <button class="btn-primary" id="save-profile">Save Changes</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin View -->
+    <section id="view-admin" class="view">
+      <h2 class="section-title">Admin Command Center</h2>
+      <div id="admin-login-gate">
+        <input type="password" id="admin-pw" placeholder="Admin Password">
+        <button class="btn-primary" id="admin-login-btn">Unlock</button>
+      </div>
+      <div id="admin-panel" style="display:none;">
+        <div class="admin-section">
+          <h3>ads.txt Content</h3>
+          <textarea id="admin-adstxt" rows="6"></textarea>
+          <button class="btn-secondary" id="save-adstxt">Save ads.txt</button>
+        </div>
+        <div class="admin-section">
+          <h3>AdSense Slots</h3>
+          <label class="toggle-label"><input type="checkbox" id="admin-adsense-enabled"> Enable AdSense</label>
+          <input type="text" id="admin-adsense-header" placeholder="Header Slot ID">
+          <input type="text" id="admin-adsense-sidebar" placeholder="Sidebar Slot ID">
+          <input type="text" id="admin-adsense-below" placeholder="Below Player Slot ID">
+          <button class="btn-secondary" id="save-adsense">Save AdSense</button>
+        </div>
+        <div class="admin-section">
+          <h3>Coin Rate: <span id="admin-coin-rate"></span>/min</h3>
+        </div>
+        <div class="admin-section">
+          <h3>Registered Users</h3>
+          <div id="admin-users-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Chat Drawer -->
+  <aside id="chat-drawer" class="chat-drawer">
+    <div class="chat-header">
+      <span>Global Chat</span>
+      <button id="chat-close" class="btn-icon">✕</button>
+    </div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input-bar">
+      <input type="text" id="chat-input" placeholder="Type a message..." maxlength="200" autocomplete="off">
+      <button id="chat-send" class="btn-primary btn-sm">Send</button>
+    </div>
+  </aside>
+
+  <!-- Mobile Bottom Nav -->
+  <nav id="mobile-nav">
+    <button class="mob-nav-item active" data-view="discover"><span>⌂</span><span>Games</span></button>
+    <button class="mob-nav-item" data-view="analytics"><span>◈</span><span>Stats</span></button>
+    <button class="mob-nav-item" data-view="leaderboard"><span>⚑</span><span>Ranks</span></button>
+    <button class="mob-nav-item" data-view="wallet"><span>◉</span><span>Wallet</span></button>
+    <button class="mob-nav-item" data-view="profile"><span>⊕</span><span>Profile</span></button>
+  </nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
