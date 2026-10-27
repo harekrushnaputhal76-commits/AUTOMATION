@@ -58,6 +58,8 @@
   // ── Application State ──
   let state = {
     user: null,
+    pendingPhotoUrl: null,
+    selectedAvatar: null,
     currentView: "discover",
     allGames: [],
     filteredGames: [],
@@ -151,55 +153,193 @@
     if(inrEl) inrEl.textContent = `= ₹${(safeCoins / COINS_PER_INR).toFixed(2)} INR (1000 Coins = ₹1)`;
   }
 
+  
+  // ── Multi-Theme Engine (Default Cyber Neon, Dark AMOLED, White Light) ──
+  const THEMES = ["default", "dark", "white"];
+
+  function applyTheme(themeName){
+    if(!THEMES.includes(themeName)) themeName = "default";
+    document.documentElement.setAttribute("data-theme", themeName);
+    try { localStorage.setItem("nx_theme", themeName); } catch(e){}
+
+    // Update active state on theme picker buttons
+    $$(".theme-picker-opt").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.theme === themeName);
+    });
+
+    // Update quick toggle button icon in HUD header
+    const quickBtn = $("#theme-quick-toggle");
+    if(quickBtn){
+      quickBtn.innerHTML = themeName === "white" ? "☀️" : themeName === "dark" ? "🌙" : "⚡";
+      quickBtn.title = `Theme: ${themeName.toUpperCase()} (Click to toggle)`;
+    }
+  }
+
+  function initTheme(){
+    let saved = "default";
+    try { saved = localStorage.getItem("nx_theme") || "default"; } catch(e){}
+    applyTheme(saved);
+  }
+
+  // ── Universal Avatar Markup Generator (Supports Uploaded Photos & Emojis) ──
+  function getAvatarMarkup(av, context = "generic"){
+    if(!av) av = "👤";
+    if(typeof av === "string" && (av.startsWith("data:image/") || av.startsWith("http://") || av.startsWith("https://"))){
+      const cls = context === "podium" ? "avatar-photo-lg" : context === "lb" ? "lb-avatar-thumb" : context === "admin" ? "admin-user-av-img" : "hud-avatar-thumb";
+      return `<img src="${escapeHtml(av)}" class="${cls}" alt="Avatar" onerror="this.onerror=null;this.replaceWith('👤');">`;
+    }
+    return `<span class="avatar-emoji-txt">${escapeHtml(av)}</span>`;
+  }
+
+  function renderLargeAvatarDisplay(av){
+    const avDisplay = $("#avatar-display");
+    if(!avDisplay) return;
+    if(av && (av.startsWith("data:image/") || av.startsWith("http://") || av.startsWith("https://"))){
+      avDisplay.innerHTML = `<img src="${escapeHtml(av)}" class="avatar-photo-lg" alt="Profile Photo">`;
+    } else {
+      avDisplay.innerHTML = `<span class="player-avatar-emoji">${escapeHtml(av || "👤")}</span>`;
+    }
+  }
+
+  function handlePhotoUpload(file){
+    if(!file || !file.type.startsWith("image/")){
+      showToast("Please choose a valid image file (PNG, JPG, WebP).", "⚠️");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_SIZE = 180;
+        let w = img.width;
+        let h = img.height;
+        if(w > h){
+          if(w > MAX_SIZE){
+            h = Math.round((h * MAX_SIZE) / w);
+            w = MAX_SIZE;
+          }
+        } else {
+          if(h > MAX_SIZE){
+            w = Math.round((w * MAX_SIZE) / h);
+            h = MAX_SIZE;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+        state.pendingPhotoUrl = dataUrl;
+        state.selectedAvatar = null;
+        $$(".avatar-opt").forEach(x => x.classList.remove("active"));
+
+        const previewWrap = $("#photo-preview-wrap");
+        const previewImg = $("#photo-preview-img");
+        if(previewWrap && previewImg){
+          previewImg.src = dataUrl;
+          previewWrap.style.display = "block";
+        }
+        renderLargeAvatarDisplay(dataUrl);
+        showToast("Photo loaded! Click 'Save Profile Changes' to sync to Firestore.", "📷");
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
   function updateUserDisplay(){
     if(!state.user) return;
-    const av = state.user.avatar || "⚡";
-    const name = state.user.username || "Gamer";
+    const av = state.user.avatar || "👤";
+    const name = state.user.username || "Player";
     const hudUser = $("#hud-user");
-    if(hudUser) hudUser.textContent = `${av} ${name}`;
+    if(hudUser){
+      if(av.startsWith("data:image/") || av.startsWith("http://") || av.startsWith("https://")){
+        hudUser.innerHTML = `<img src="${escapeHtml(av)}" class="hud-avatar-thumb" alt="Avatar"> <span class="hud-username">${escapeHtml(name)}</span>`;
+      } else {
+        hudUser.innerHTML = `<span class="hud-avatar-emoji">${escapeHtml(av)}</span> <span class="hud-username">${escapeHtml(name)}</span>`;
+      }
+    }
     updateCoinsDisplay(state.user.coins || 0);
   }
 
   function renderProfileView(){
     if(!state.user) return;
-    const av = state.user.avatar || "⚡";
-    const name = state.user.username || "Gamer";
-    const hudUser = $("#hud-user");
-    if(hudUser) hudUser.textContent = `${av} ${name}`;
-    const avDisplay = $("#avatar-display");
-    if(avDisplay) avDisplay.textContent = av;
+    const av = state.user.avatar || "👤";
+    const name = state.user.username || "Player";
+    const userCoins = typeof state.user.coins === "number" ? state.user.coins : 0;
+    const localLogs = getLocalLogs();
+    const gamesCount = localLogs.length;
+    const playMinutes = Math.max(1, Math.floor(userCoins / 10));
+
+    // Update HUD and Profile Hero
+    updateUserDisplay();
+
+    const heroName = $("#profile-hero-name");
+    if(heroName) heroName.textContent = name;
+
     const profUser = $("#profile-username");
     if(profUser) profUser.value = name;
-    const profEmail = $("#profile-email");
-    if(profEmail) profEmail.value = state.user.email || (state.user.is_guest ? "Guest Account (Local Session)" : "Google / Cloud Account");
 
-    // Dynamically render avatar options with user's current avatar active
+    const profEmail = $("#profile-email");
+    if(profEmail) profEmail.value = state.user.email || (state.user.is_guest ? "Persistent Guest (Phone Storage)" : "Google Cloud Verified");
+
+    const badgeType = $("#profile-badge-type");
+    if(badgeType) badgeType.textContent = state.user.is_guest ? "Guest Account" : "Verified Cloud";
+
+    const uidText = $("#profile-uid-text");
+    if(uidText) uidText.textContent = state.user.uid || "--";
+
+    // Real Live Stats Counters
+    const statCoins = $("#profile-stat-coins");
+    if(statCoins) statCoins.textContent = userCoins.toLocaleString();
+
+    const statGames = $("#profile-stat-games");
+    if(statGames) statGames.textContent = gamesCount.toLocaleString();
+
+    const statTime = $("#profile-stat-time");
+    if(statTime) statTime.textContent = playMinutes + "m";
+
+    // Large Avatar Display
+    renderLargeAvatarDisplay(state.pendingPhotoUrl || av);
+
+    // Guest Reset button visibility
+    const resetGuestBtn = $("#profile-reset-guest-btn");
+    if(resetGuestBtn){
+      resetGuestBtn.style.display = state.user.is_guest ? "inline-block" : "none";
+    }
+
+    // Avatar Arcade Gallery
     const avOpts = $("#avatar-options");
     if(avOpts){
       avOpts.innerHTML = "";
       AVATARS.forEach(a => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "avatar-opt" + (a === av ? " active" : "");
+        const isActive = !state.pendingPhotoUrl && (a === av || a === state.selectedAvatar);
+        btn.className = "avatar-opt" + (isActive ? " active" : "");
         btn.textContent = a;
         btn.addEventListener("click", () => {
           $$(".avatar-opt").forEach(x => x.classList.remove("active"));
           btn.classList.add("active");
-          if(avDisplay) avDisplay.textContent = a;
-          state.user.avatar = a;
-          setCachedUser(state.user);
-          if(hudUser) hudUser.textContent = `${a} ${state.user.username}`;
-          if(db && state.user.uid){
-            try {
-              db.collection("users").doc(state.user.uid).set({ avatar: a }, { merge: true });
-              db.collection("leaderboard").doc(state.user.uid).set({ avatar: a }, { merge: true });
-            } catch(e){}
-          }
+          state.selectedAvatar = a;
+          state.pendingPhotoUrl = null;
+          const previewWrap = $("#photo-preview-wrap");
+          if(previewWrap) previewWrap.style.display = "none";
+          renderLargeAvatarDisplay(a);
         });
         avOpts.appendChild(btn);
       });
     }
-    updateCoinsDisplay(state.user.coins || 0);
+
+    // Theme selector buttons active state
+    const currentTheme = document.documentElement.getAttribute("data-theme") || "default";
+    $$(".theme-picker-opt").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.theme === currentTheme);
+    });
+
+    updateCoinsDisplay(userCoins);
   }
 
   // ── Firestore Sync & Coin Transactions ──
@@ -1286,19 +1426,89 @@
       });
     }
 
-    // Profile View Initialization
+    // Profile View & Theme Setup
     renderProfileView();
 
-    $("#save-profile").addEventListener("click", async () => {
-      const newName = $("#profile-username").value.trim();
-      const selAv = document.querySelector(".avatar-opt.active");
-      const newAv = selAv ? selAv.textContent : (state.user ? state.user.avatar : "⚡");
+    // Quick Theme Toggle in HUD Bar
+    const quickThemeBtn = $("#theme-quick-toggle");
+    if(quickThemeBtn){
+      quickThemeBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "default";
+        const next = cur === "default" ? "dark" : cur === "dark" ? "white" : "default";
+        applyTheme(next);
+        showToast(`Theme switched to ${next.toUpperCase()}`, "🎨");
+      });
+    }
 
-      if(state.user){
-        state.user.username = newName || state.user.username;
-        state.user.avatar = newAv;
+    // Theme Picker Options in Profile View
+    $$(".theme-picker-opt").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const th = btn.dataset.theme;
+        applyTheme(th);
+        showToast(`Theme switched to ${th.toUpperCase()}`, "🎨");
+      });
+    });
+
+    // Custom Photo Upload Trigger & Preview
+    const uploadTrigger = $("#btn-trigger-upload");
+    const photoInput = $("#profile-photo-input");
+    if(uploadTrigger && photoInput){
+      uploadTrigger.addEventListener("click", () => photoInput.click());
+      photoInput.addEventListener("change", (e) => {
+        if(e.target.files && e.target.files[0]){
+          handlePhotoUpload(e.target.files[0]);
+        }
+      });
+    }
+
+    const cancelPhotoBtn = $("#photo-preview-cancel");
+    if(cancelPhotoBtn){
+      cancelPhotoBtn.addEventListener("click", () => {
+        state.pendingPhotoUrl = null;
+        const previewWrap = $("#photo-preview-wrap");
+        if(previewWrap) previewWrap.style.display = "none";
+        renderLargeAvatarDisplay(state.user ? state.user.avatar : "👤");
+        if(photoInput) photoInput.value = "";
+      });
+    }
+
+    // Copy UID to Clipboard
+    const copyUidBtn = $("#profile-badge-uid");
+    if(copyUidBtn){
+      copyUidBtn.addEventListener("click", () => {
+        if(state.user && state.user.uid){
+          navigator.clipboard.writeText(state.user.uid).then(() => {
+            showToast("Player UID copied to clipboard!", "📋");
+          }).catch(() => {
+            showToast(`UID: ${state.user.uid}`, "📋");
+          });
+        }
+      });
+    }
+
+    // Save Profile (Syncs Display Name & Photo/Avatar directly to Firestore)
+    const saveProfBtn = $("#save-profile");
+    if(saveProfBtn){
+      saveProfBtn.addEventListener("click", async () => {
+        if(!state.user) return;
+        const newName = $("#profile-username").value.trim() || state.user.username;
+        const newAvatar = state.pendingPhotoUrl || state.selectedAvatar || state.user.avatar || "👤";
+
+        state.user.username = newName;
+        state.user.avatar = newAvatar;
+        state.pendingPhotoUrl = null;
+        state.selectedAvatar = null;
+
+        const previewWrap = $("#photo-preview-wrap");
+        if(previewWrap) previewWrap.style.display = "none";
+
         setCachedUser(state.user);
+        if(state.user.is_guest){
+          try { localStorage.setItem("nx_persistent_guest_profile", JSON.stringify(state.user)); } catch(e){}
+        }
+
         updateUserDisplay();
+        renderProfileView();
 
         if(db && state.user.uid){
           try {
@@ -1310,19 +1520,36 @@
               username: state.user.username,
               avatar: state.user.avatar
             }, { merge: true });
-          } catch(e){}
+          } catch(e){
+            console.warn("Firestore profile save error:", e);
+          }
         }
-      }
 
-      showToast("Profile changes saved!", "✓");
-    });
+        showToast("Profile changes saved! Synced to Firestore.", "✓");
+      });
+    }
 
-    $("#profile-lowspec").addEventListener("change", (e) => {
-      if(e.target.checked) document.body.classList.add("low-spec");
-      else document.body.classList.remove("low-spec");
-    });
+    // Reset Guest Data Button
+    const resetGuestBtn = $("#profile-reset-guest-btn");
+    if(resetGuestBtn){
+      resetGuestBtn.addEventListener("click", () => {
+        if(confirm("Are you sure you want to reset your local guest profile? All temporary progress will be reset.")){
+          localStorage.removeItem("nx_persistent_guest_profile");
+          localStorage.removeItem("nx_cached_user");
+          localStorage.removeItem("nx_coins");
+          location.reload();
+        }
+      });
+    }
 
-    
+    const lowSpecToggle = $("#profile-lowspec");
+    if(lowSpecToggle){
+      lowSpecToggle.addEventListener("change", (e) => {
+        if(e.target.checked) document.body.classList.add("low-spec");
+        else document.body.classList.remove("low-spec");
+      });
+    }
+
     // Touch focus forwarding: tapping game area focuses the iframe
     const gameCont = $("#game-container");
     if(gameCont){
@@ -2065,6 +2292,7 @@
 
   // ── Bootstrap Application ──
   document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
     setupEventListeners();
     setupAdminEventListeners();
     initAuth();

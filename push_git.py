@@ -1,11 +1,25 @@
 import os
 import shutil
+import stat
 import subprocess
 import sys
 
 REPO_URL = "https://github.com/harekrushnaputhal76-commits/AUTOMATION.git"
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_SYNC = os.path.join(ROOT_DIR, "temp_git_sync")
+
+def remove_readonly(func, path, excinfo):
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except Exception:
+        pass
+
+def safe_remove_tree(dir_path):
+    if os.path.exists(dir_path):
+        subprocess.run(f'rmdir /s /q "{dir_path}"', shell=True, capture_output=True)
+        if os.path.exists(dir_path):
+            shutil.rmtree(dir_path, onerror=remove_readonly)
 
 def run(cmd, cwd=ROOT_DIR):
     res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -40,8 +54,7 @@ def main():
 
     # 2. Clone repo to temporary directory
     print("\n[2/4] Connecting to GitHub remote...")
-    if os.path.exists(TEMP_SYNC):
-        shutil.rmtree(TEMP_SYNC, ignore_errors=True)
+    safe_remove_tree(TEMP_SYNC)
 
     code, out, err = run(f"git clone {REPO_URL} temp_git_sync")
     if code != 0:
@@ -84,19 +97,19 @@ def main():
         code, commit_out, commit_err = run(f'git commit -m "{commit_msg}"', cwd=TEMP_SYNC)
         if code != 0:
             print(f"Commit error: {commit_err}")
-            shutil.rmtree(TEMP_SYNC, ignore_errors=True)
+            safe_remove_tree(TEMP_SYNC)
             sys.exit(1)
         print(f"Commit created: {commit_out.splitlines()[0] if commit_out else 'OK'}")
 
         code, push_out, push_err = run("git push origin main", cwd=TEMP_SYNC)
         if code != 0:
             print(f"Push error: {push_err}")
-            shutil.rmtree(TEMP_SYNC, ignore_errors=True)
+            safe_remove_tree(TEMP_SYNC)
             sys.exit(1)
         print("Successfully pushed to GitHub: origin/main!")
 
     # Cleanup
-    shutil.rmtree(TEMP_SYNC, ignore_errors=True)
+    safe_remove_tree(TEMP_SYNC)
     print("\nGit sync completed successfully!")
 
 if __name__ == "__main__":

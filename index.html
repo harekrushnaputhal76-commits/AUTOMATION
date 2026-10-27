@@ -172,6 +172,7 @@
           <span id="miner-status">Playing</span>
           <span id="miner-coins-rate">+5 Coins</span>
         </div>
+        <button id="theme-quick-toggle" class="btn-icon theme-quick-toggle" title="Toggle Theme (Default / Dark / White)" aria-label="Toggle Theme">⚡</button>
         <span id="hud-user" class="hud-user" title="Account Profile"></span>
       </div>
     </header>
@@ -416,41 +417,184 @@
       </div>
     </section>
 
-    <!-- Profile & Settings View -->
+    <!-- Profile & Settings View (100% Real Firestore Data, Photo Avatar Studio & Multi-Theme Switcher) -->
     <section id="view-profile" class="view">
       <div class="section-header-row">
         <div>
-          <h2 class="section-title">Profile & Settings</h2>
-          <p class="section-subtitle">Manage your account details and game preferences.</p>
+          <h2 class="section-title">Player Profile & Settings</h2>
+          <p class="section-subtitle">Live Firestore profile management, photo customization, theme studio, and preferences.</p>
         </div>
       </div>
 
-      <div class="profile-card">
-        <div class="avatar-selector">
-          <div class="avatar-current" id="avatar-display">👤</div>
-          <div class="avatar-picker-wrap">
-            <span class="avatar-picker-label">Select Avatar</span>
-            <div class="avatar-options" id="avatar-options"></div>
+      <div class="profile-layout-grid">
+        <!-- Left Column: Hero Identity Card & Photo/Avatar Studio -->
+        <div class="profile-column">
+          <!-- Real-Time Hero Identity Card -->
+          <div class="profile-card player-hero-card">
+            <div class="player-avatar-large-wrap">
+              <div class="player-avatar-large" id="avatar-display">👤</div>
+              <div class="avatar-upload-overlay">
+                <button type="button" class="btn-avatar-upload-trigger" id="btn-trigger-upload" title="Upload custom photo">
+                  📷 Change Photo
+                </button>
+                <input type="file" id="profile-photo-input" accept="image/png, image/jpeg, image/webp" style="display:none;">
+              </div>
+            </div>
+
+            <div class="player-hero-meta">
+              <h3 class="player-hero-name" id="profile-hero-name">Player</h3>
+              <div class="player-account-badges">
+                <span class="badge-account-type" id="profile-badge-type">Verified Cloud</span>
+                <span class="badge-uid" id="profile-badge-uid" title="Click to copy UID">UID: <code id="profile-uid-text">--</code></span>
+              </div>
+            </div>
+
+            <!-- Real Live Firestore Stats -->
+            <div class="profile-stats-row">
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">🪙</span>
+                <span class="profile-stat-num" id="profile-stat-coins">0</span>
+                <span class="profile-stat-lbl">Wallet Coins</span>
+              </div>
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">🎮</span>
+                <span class="profile-stat-num" id="profile-stat-games">0</span>
+                <span class="profile-stat-lbl">Games Played</span>
+              </div>
+              <div class="profile-stat-box">
+                <span class="profile-stat-icon">⏱️</span>
+                <span class="profile-stat-num" id="profile-stat-time">0m</span>
+                <span class="profile-stat-lbl">Time In Arcade</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Photo & Avatar Studio Panel -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">Avatar & Photo Studio</h4>
+            <p class="card-desc">Choose a custom photo from your device or select an arcade emoji avatar.</p>
+
+            <!-- New Uploaded Photo Preview (Shown when an image is selected) -->
+            <div id="photo-preview-wrap" class="photo-preview-box" style="display:none;">
+              <div class="preview-header">
+                <span class="preview-title">New Photo Preview</span>
+                <button type="button" id="photo-preview-cancel" class="btn-ghost btn-xs">✕ Cancel</button>
+              </div>
+              <div class="preview-content">
+                <img id="photo-preview-img" class="photo-preview-thumb" alt="Preview">
+                <div class="preview-info">
+                  <span class="preview-badge">Ready to Sync</span>
+                  <p class="preview-desc">Optimized & ready to save to your Firestore profile.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arcade Emoji Avatars -->
+            <div class="avatar-gallery-wrap">
+              <label class="field-label" style="display:block; margin: 12px 0 8px; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Arcade Icon Collection</label>
+              <div class="avatar-options" id="avatar-options"></div>
+            </div>
           </div>
         </div>
 
-        <div class="profile-fields">
-          <div class="form-group">
-            <label for="profile-username">Username</label>
-            <input type="text" id="profile-username" maxlength="24" placeholder="Enter username">
+        <!-- Right Column: Account Details, Theme Switcher & Settings -->
+        <div class="profile-column">
+          <!-- Edit Account Identity Card -->
+          <div class="profile-card">
+            <h4 class="card-title">Edit Account Identity</h4>
+            <p class="card-desc">Your player name and avatar sync directly with Firestore and global rankings.</p>
+            
+            <div class="profile-fields">
+              <div class="form-group">
+                <label for="profile-username">Display Name / Gamertag</label>
+                <input type="text" id="profile-username" maxlength="24" placeholder="Enter your player name">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-email">Account Identifier</label>
+                <input type="text" id="profile-email" readonly style="opacity:0.75; cursor:not-allowed;">
+              </div>
+
+              <div class="profile-actions-row">
+                <button class="btn-primary" id="save-profile">Save Profile Changes</button>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="profile-email">Account / Provider</label>
-            <input type="text" id="profile-email" readonly style="opacity:0.75; cursor:not-allowed;">
+
+          <!-- Visual Theme Mode Switcher -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">Portal Theme Mode</h4>
+            <p class="card-desc">Select your preferred portal appearance. Transitions instantly across all views.</p>
+
+            <div class="theme-picker-grid">
+              <button type="button" class="theme-picker-opt active" data-theme="default">
+                <div class="theme-preview-swatch swatch-default">
+                  <span class="swatch-glow cyan"></span>
+                  <span class="swatch-glow pink"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>Default</strong>
+                  <span>Cyber Neon</span>
+                </div>
+              </button>
+
+              <button type="button" class="theme-picker-opt" data-theme="dark">
+                <div class="theme-preview-swatch swatch-dark">
+                  <span class="swatch-glow slate"></span>
+                  <span class="swatch-glow blue"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>Dark</strong>
+                  <span>Midnight AMOLED</span>
+                </div>
+              </button>
+
+              <button type="button" class="theme-picker-opt" data-theme="white">
+                <div class="theme-preview-swatch swatch-white">
+                  <span class="swatch-glow light-bg"></span>
+                  <span class="swatch-glow blue"></span>
+                </div>
+                <div class="theme-picker-meta">
+                  <strong>White</strong>
+                  <span>Clean Light</span>
+                </div>
+              </button>
+            </div>
           </div>
-          <div class="form-group-toggles">
-            <label class="toggle-label"><input type="checkbox" id="profile-sound"> Sound Effects</label>
-            <label class="toggle-label"><input type="checkbox" id="profile-lowspec"> Performance Mode (Reduced Motion)</label>
+
+          <!-- System Preferences & Fast Sign Out -->
+          <div class="profile-card" style="margin-top: 20px;">
+            <h4 class="card-title">System & Session Settings</h4>
+            <p class="card-desc">Audio preferences and fast account management.</p>
+
+            <div class="settings-toggle-list">
+              <label class="settings-toggle-item">
+                <div class="toggle-text">
+                  <strong>Game Sound Effects</strong>
+                  <span>Play arcade audio cues and rewards</span>
+                </div>
+                <input type="checkbox" id="profile-sound" checked>
+              </label>
+
+              <label class="settings-toggle-item">
+                <div class="toggle-text">
+                  <strong>Performance Mode</strong>
+                  <span>Reduce motion for smoother FPS on mobile</span>
+                </div>
+                <input type="checkbox" id="profile-lowspec">
+              </label>
+            </div>
+
+            <div class="settings-footer-actions">
+              <button type="button" id="profile-logout-btn" class="btn-danger btn-logout-fast">
+                🚪 Sign Out of Account
+              </button>
+              <button type="button" id="profile-reset-guest-btn" class="btn-secondary btn-sm" style="display:none;">
+                Reset Guest Data
+              </button>
+            </div>
           </div>
-          <div class="profile-actions">
-            <button class="btn-primary" id="save-profile">Save Changes</button>
-            <button class="btn-secondary" id="profile-logout-btn">Sign Out</button>
-          </div>
+        </div>
       </div>
     </section>
 
