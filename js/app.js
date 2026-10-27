@@ -1149,13 +1149,13 @@
       document.addEventListener(evt, resetActivity, { passive: true });
     });
 
-    // Clean background coin reward loop (silent, awards coins directly to wallet & Firestore)
-    state.miningTimer = setInterval(async () => {
+    // Active Game Session Tracking (Time & Analytics only — Coins are awarded exclusively via In-Game Ads)
+    state.miningTimer = setInterval(() => {
       if(state.isIdle) return;
-      state.sessionCoins += COINS_PER_30S;
-
-      // Reward coins silently and sync to Firestore
-      await syncCoinsToFirestore(COINS_PER_30S, "Gameplay Reward", (game && game.title) ? game.title : "Game Session");
+      // Session minutes tracking without automatic coin inflation
+      if(state.user){
+        state.user.minutes_played = (state.user.minutes_played || 0) + 0.5;
+      }
     }, MINING_INTERVAL_MS);
 
     // Idle Check Loop
@@ -1440,60 +1440,65 @@
     body.appendChild(frag);
   }
 
-  // ── Rewarded Sponsor Ad Engine (1 Ad = 10 Coins, 10 Ads = 100 Coins, 100 Ads = 1,000 Coins) ──
-  let adTimerInterval = null;
-  function showRewardedAd(source = "Wallet"){
-    const modal = $("#rewarded-ad-modal");
-    if(!modal) return;
+  // ── Real In-Game Ad Detection & Reward Engine (1 In-Game Ad = 10 Coins) ──
+  // Listens to real GameMonetize / HTML5 game postMessage events emitted by the game iframe.
+  // External fake 'watch ad' buttons and modals have been completely removed per owner instruction.
+  let inGameAdIsActive = false;
+  let lastInGameAdRewardTime = 0;
 
-    modal.style.display = "flex";
-    const secEl = $("#ad-countdown-sec");
-    const barEl = $("#ad-progress-bar");
-    const claimBtn = $("#ad-claim-btn");
+  function initInGameAdListener(){
+    if(typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    window.addEventListener("message", async (e) => {
+      try {
+        const data = e.data;
+        let eventName = "";
 
-    if(claimBtn) claimBtn.style.display = "none";
-    if(barEl) barEl.style.width = "0%";
-    if(secEl) secEl.textContent = "5";
-
-    let remaining = 5.0;
-    let progress = 0;
-    if(adTimerInterval) clearInterval(adTimerInterval);
-
-    adTimerInterval = setInterval(async () => {
-      remaining -= 0.1;
-      progress += 2;
-      if(barEl) barEl.style.width = Math.min(100, progress) + "%";
-      if(secEl) secEl.textContent = Math.max(0, Math.ceil(remaining));
-
-      if(remaining <= 0){
-        clearInterval(adTimerInterval);
-        adTimerInterval = null;
-
-        // Reward the player with +10 Coins (1 Ad = 10 Coins, 10 Ads = 100 Coins)
-        if(state.user){
-          state.user.ads_watched = (state.user.ads_watched || 0) + 1;
+        if(typeof data === "string"){
+          eventName = data;
+        } else if(data && typeof data === "object"){
+          eventName = data.type || data.event || data.action || data.name || "";
         }
 
-        await syncCoinsToFirestore(10, "Rewarded Sponsor Ad", "Sponsor Video (" + source + ")");
-        showToast("Reward Unlocked! +10 Coins added to your wallet.", "✓");
+        if(!eventName) return;
 
-        const adNumEl = $("#ad-watched-num");
-        if(adNumEl && state.user) adNumEl.textContent = state.user.ads_watched || 1;
-
-        if(claimBtn){
-          claimBtn.style.display = "inline-flex";
-          claimBtn.onclick = () => {
-            modal.style.display = "none";
-          };
+        // When GameMonetize pauses the game to display a real in-game ad
+        if(eventName === "SDK_GAME_PAUSE" || eventName === "ad_started" || eventName === "ad_start" || eventName === "SDK_REWARDED_WATCH_START"){
+          inGameAdIsActive = true;
         }
 
-        setTimeout(() => {
-          if(modal.style.display !== "none"){
-            modal.style.display = "none";
+        // When the ad finishes playing and the game resumes
+        const isAdComplete = 
+          eventName === "SDK_REWARDED_WATCH_COMPLETE" ||
+          eventName === "SDK_AD_COMPLETE" ||
+          eventName === "rewarded_ad_complete" ||
+          eventName === "ad_completed" ||
+          eventName === "ad_finished" ||
+          (inGameAdIsActive && eventName === "SDK_GAME_START");
+
+        if(isAdComplete){
+          inGameAdIsActive = false;
+
+          // Guard against rapid duplicate triggers (minimum 10 second cooldown)
+          const now = Date.now();
+          if(now - lastInGameAdRewardTime < 10000) return;
+          lastInGameAdRewardTime = now;
+
+          const rewardCoins = 10;
+          const gameTitle = (state.activeGame && state.activeGame.title) ? state.activeGame.title : "Game In-Game Ad";
+
+          if(state.user){
+            state.user.ads_watched = (state.user.ads_watched || 0) + 1;
+            setCachedUser(state.user);
           }
-        }, 1200);
+
+          // Permanently sync +10 coins to Cloud Firestore
+          await syncCoinsToFirestore(rewardCoins, "In-Game Ad Reward", gameTitle);
+          showToast(`In-Game Ad Watched! +${rewardCoins} Coins added to your wallet.`, "🪙");
+        }
+      } catch(err){
+        console.warn("In-Game Ad listener notice:", err);
       }
-    }, 100);
+    });
   }
 
   // ── Real Firestore Wallet & Live Payouts Tracking ──
@@ -1731,21 +1736,8 @@
     });
     $("#sidebar-toggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
-    // Rewarded Ad Listeners
-    const wAdBtn = $("#wallet-watch-ad-btn");
-    if(wAdBtn) wAdBtn.addEventListener("click", () => showRewardedAd("Wallet"));
-
-    const mainAdBtn = $("#btn-watch-ad-main");
-    if(mainAdBtn) mainAdBtn.addEventListener("click", () => showRewardedAd("Ad Station"));
-
-    const theaterAdBtn = $("#theater-ad-btn");
-    if(theaterAdBtn) theaterAdBtn.addEventListener("click", () => showRewardedAd("Game Bonus"));
-
-    const adClaimBtn = $("#ad-claim-btn");
-    if(adClaimBtn) adClaimBtn.addEventListener("click", () => {
-      const modal = $("#rewarded-ad-modal");
-      if(modal) modal.style.display = "none";
-    });
+    // In-game ads are captured automatically via postMessage events from the game iframe.
+    // External 'watch ad' buttons have been removed.
 
     // Quick HUD Click Navigation
     const coinHud = $("#hud-coin-badge");
@@ -2993,6 +2985,7 @@ service cloud.firestore {
     try { setupAdminEventListeners(); } catch(e){ console.warn("setupAdminEventListeners notice:", e); }
     try { initAuth(); } catch(e){ console.error("initAuth error:", e); }
     try { initApkDownloadWidgets(); } catch(e){ console.warn("initApkDownloadWidgets notice:", e); }
+    try { initInGameAdListener(); } catch(e){ console.warn("initInGameAdListener notice:", e); }
   }
 
   if (document.readyState === "loading") {
